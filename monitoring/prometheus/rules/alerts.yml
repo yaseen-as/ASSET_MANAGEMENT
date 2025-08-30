@@ -1,0 +1,72 @@
+groups:
+- name: asset_management_alerts
+  rules:
+  # High error rate
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate detected"
+      description: "{{ $labels.service }} has error rate above 10% for 2 minutes"
+
+  # High response time
+  - alert: HighResponseTime
+    expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m])) > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High response time detected"
+      description: "{{ $labels.service }} 95th percentile response time is above 1000ms"
+
+  # Database connection issues
+  - alert: DatabaseConnectionFailure
+    expr: up{job=~".*-db"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Database connection failure"
+      description: "{{ $labels.instance }} database is not responding"
+
+  # Service down
+  - alert: ServiceDown
+    expr: up{job=~".*-service"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Service is down"
+      description: "{{ $labels.job }} is down for more than 1 minute"
+
+  # High CPU usage
+  - alert: HighCPUUsage
+    expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage detected"
+      description: "{{ $labels.service }} CPU usage is above 80% for 5 minutes"
+
+  # High memory usage
+  - alert: HighMemoryUsage
+    expr: process_resident_memory_bytes / 1024 / 1024 > 512
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage detected"
+      description: "{{ $labels.service }} memory usage is above 512MB for 5 minutes"
+
+  # Failed login attempts
+  - alert: HighFailedLoginAttempts
+    expr: rate(auth_login_attempts_total{status="failed"}[5m]) > 10
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High failed login attempts"
+      description: "More than 10 failed login attempts per second for 2 minutes"

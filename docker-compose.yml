@@ -1,0 +1,425 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles: ["dev", "test", "prod"]
+    networks:
+      - app-network
+
+  portfolio-db:
+    image: postgres:15-alpine
+    container_name: portfolio-db
+    environment:
+      POSTGRES_DB: portfolio_db
+      POSTGRES_USER: portfolio_user
+      POSTGRES_PASSWORD: portfolio_password
+    volumes:
+      - portfolio_db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio_user -d portfolio_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles: ["dev", "test", "prod"]
+    networks:
+      - app-network
+
+  market-db:
+    image: postgres:15-alpine
+    container_name: market-db
+    environment:
+      POSTGRES_DB: market_db
+      POSTGRES_USER: market_user
+      POSTGRES_PASSWORD: market_password
+    volumes:
+      - market_db_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U market_user -d market_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles: ["dev", "test", "prod"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # TEST DATABASES
+  # =============================================================================
+  auth-db-test:
+    image: postgres:15-alpine
+    container_name: auth-db-test
+    environment:
+      POSTGRES_DB: auth_test
+      POSTGRES_USER: auth_test
+      POSTGRES_PASSWORD: auth_test
+    ports:
+      - "5435:5432"
+    profiles: ["test"]
+    networks:
+      - app-network
+
+  portfolio-db-test:
+    image: postgres:15-alpine
+    container_name: portfolio-db-test
+    environment:
+      POSTGRES_DB: portfolio_test
+      POSTGRES_USER: portfolio_test
+      POSTGRES_PASSWORD: portfolio_test
+    ports:
+      - "5436:5432"
+    profiles: ["test"]
+    networks:
+      - app-network
+
+  market-db-test:
+    image: postgres:15-alpine
+    container_name: market-db-test
+    environment:
+      POSTGRES_DB: market_test
+      POSTGRES_USER: market_test
+      POSTGRES_PASSWORD: market_test
+    ports:
+      - "5437:5432"
+    profiles: ["test"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # BACKEND SERVICES
+  # =============================================================================
+  auth-service:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    container_name: auth-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://auth_user:auth_password@auth-db:5432/auth_db
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    volumes:
+      - ./services/auth/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles: ["dev", "prod"]
+    networks:
+      - app-network
+
+  auth-service-dev:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile.dev
+    container_name: auth-service-dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://auth_user:auth_password@auth-db:5432/auth_db
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    volumes:
+      - ./services/auth:/app
+      - /app/node_modules
+      - ./services/auth/logs:/app/logs
+    profiles: ["dev"]
+    networks:
+      - app-network
+
+  portfolio-service:
+    build:
+      context: ./services/portfolio
+      dockerfile: Dockerfile
+    container_name: portfolio-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://portfolio_user:portfolio_password@portfolio-db:5432/portfolio_db
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3002
+      AUTH_SERVICE_URL: http://auth-service:3001
+    ports:
+      - "3002:3002"
+    depends_on:
+      portfolio-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    volumes:
+      - ./services/portfolio/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles: ["dev", "prod"]
+    networks:
+      - app-network
+
+  portfolio-service-dev:
+    build:
+      context: ./services/portfolio
+      dockerfile: Dockerfile.dev
+    container_name: portfolio-service-dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://portfolio_user:portfolio_password@portfolio-db:5432/portfolio_db
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3002
+      AUTH_SERVICE_URL: http://auth-service:3001
+    ports:
+      - "3002:3002"
+    depends_on:
+      portfolio-db:
+        condition: service_healthy
+    volumes:
+      - ./services/portfolio:/app
+      - /app/node_modules
+      - ./services/portfolio/logs:/app/logs
+    profiles: ["dev"]
+    networks:
+      - app-network
+
+  market-service:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: market-service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://market_user:market_password@market-db:5432/market_db
+      JWT_SECRET: ${JWT_SECRET}
+      ANGEL_ONE_API_KEY: ${ANGEL_ONE_API_KEY}
+      ANGEL_ONE_CLIENT_ID: ${ANGEL_ONE_CLIENT_ID}
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      market-db:
+        condition: service_healthy
+    volumes:
+      - ./services/market-data/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles: ["dev", "prod"]
+    networks:
+      - app-network
+
+  market-service-dev:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile.dev
+    container_name: market-service-dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://market_user:market_password@market-db:5432/market_db
+      JWT_SECRET: ${JWT_SECRET}
+      ANGEL_ONE_API_KEY: ${ANGEL_ONE_API_KEY}
+      ANGEL_ONE_CLIENT_ID: ${ANGEL_ONE_CLIENT_ID}
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      market-db:
+        condition: service_healthy
+    volumes:
+      - ./services/market-data:/app
+      - /app/node_modules
+      - ./services/market-data/logs:/app/logs
+    profiles: ["dev"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # FRONTEND
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      REACT_APP_API_URL: http://localhost
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - portfolio-service
+      - market-service
+    profiles: ["dev", "prod"]
+    networks:
+      - app-network
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: frontend-dev
+    environment:
+      REACT_APP_API_URL: http://localhost
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    profiles: ["dev"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # REVERSE PROXY
+  # =============================================================================
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - auth-service
+      - portfolio-service
+      - market-service
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+    profiles: ["dev", "prod"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # OBSERVABILITY STACK
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    profiles: ["dev", "prod", "monitoring"]
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3100:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    profiles: ["dev", "prod", "monitoring"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # CI/CD
+  # =============================================================================
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    user: root
+    profiles: ["ci"]
+    networks:
+      - app-network
+
+  # =============================================================================
+  # E2E TESTING
+  # =============================================================================
+  e2e-tests:
+    build:
+      context: ./e2e
+      dockerfile: Dockerfile
+    container_name: e2e-tests
+    depends_on:
+      - nginx
+    volumes:
+      - ./e2e/test-results:/app/test-results
+      - ./e2e/reports:/app/reports
+    environment:
+      - BASE_URL=http://nginx
+    profiles: ["test"]
+    networks:
+      - app-network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  auth_db_data:
+  portfolio_db_data:
+  market_db_data:
+  prometheus_data:
+  grafana_data:
+  jenkins_data:
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  app-network:
+    driver: bridge

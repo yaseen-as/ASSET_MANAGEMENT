@@ -1,0 +1,23 @@
+# Development Dockerfile for Auth Service
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install development dependencies
+COPY package*.json ./
+RUN npm ci --include=dev
+
+# Copy source code
+COPY . .
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Expose port
+EXPOSE 3001
+
+# Start with hot reload
+CMD ["npm", "run", "dev"]
