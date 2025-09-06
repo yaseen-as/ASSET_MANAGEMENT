@@ -12,7 +12,7 @@ export class PortfolioController {
     this.portfolioService = new PortfolioService();
   }
 
-  getPortfolio = async (req: AuthenticatedRequest, res: Response) => {
+  getPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const portfolio = await this.portfolioService.getPortfolio(req.userId);
       
@@ -29,7 +29,7 @@ export class PortfolioController {
     }
   };
 
-  addHolding = async (req: AuthenticatedRequest, res: Response) => {
+  addHolding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { ticker, quantity, buyPrice, category } = req.body;
       const holding = await this.portfolioService.addHolding(req.userId, {
@@ -52,7 +52,7 @@ export class PortfolioController {
     }
   };
 
-  updateHolding = async (req: AuthenticatedRequest, res: Response) => {
+  updateHolding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -71,7 +71,7 @@ export class PortfolioController {
     }
   };
 
-  deleteHolding = async (req: AuthenticatedRequest, res: Response) => {
+  deleteHolding = async (req: AuthenticatedRequest, res: Response) : Promise<void> => {
     try {
       const { id } = req.params;
       await this.portfolioService.deleteHolding(req.userId, id);
@@ -88,7 +88,7 @@ export class PortfolioController {
     }
   };
 
-  syncPortfolio = async (req: AuthenticatedRequest, res: Response) => {
+  syncPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const portfolio = await this.portfolioService.syncWithAngelOne(req.userId);
       

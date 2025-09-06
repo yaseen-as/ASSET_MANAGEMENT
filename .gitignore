@@ -64,3 +64,7 @@ frontend/.env*
 # Service specific build outputs
 services/*/dist/
 services/*/.env*
+
+# ssl
+*.crt
+*.key
