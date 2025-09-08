@@ -75,13 +75,6 @@ class ApiError extends Error {
   static internal(message: string = "Internal Server Error") {
     return new ApiError(500, message);
   }
-
-  /**
-   * Creates a Service Unavailable error (503)
-   */
-  static serviceUnavailable(message: string = "Service Unavailable") {
-    return new ApiError(503, message);
-  }
 }
 
 export default ApiError;

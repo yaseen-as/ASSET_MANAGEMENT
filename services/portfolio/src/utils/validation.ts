@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
+import ApiError from './ApiError';
 
 export const validateHolding = (req: Request, res: Response, next: NextFunction) => {
   const schema = Joi.object({
@@ -11,10 +12,8 @@ export const validateHolding = (req: Request, res: Response, next: NextFunction)
 
   const { error } = schema.validate(req.body);
   if (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.details[0].message,
-    });
+    const errorMessages = error.details.map((detail: any) => detail.message);
+    throw ApiError.badRequest('Validation failed', errorMessages);
   }
   next();
 };

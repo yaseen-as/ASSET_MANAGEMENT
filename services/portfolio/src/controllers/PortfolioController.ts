@@ -1,5 +1,8 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { PortfolioService } from '../services/PortfolioService';
+import ApiResponse from '../utils/ApiResponse';
+import ApiError from '../utils/ApiError';
+import asyncHandler from '../utils/asyncHandler';
 
 export interface AuthenticatedRequest extends Request {
   userId: string;
@@ -12,96 +15,62 @@ export class PortfolioController {
     this.portfolioService = new PortfolioService();
   }
 
-  getPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-      const portfolio = await this.portfolioService.getPortfolio(req.userId);
-      
-      res.status(200).json({
-        success: true,
-        data: portfolio,
-        message: 'Portfolio retrieved successfully',
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
-    }
-  };
+  getPortfolio = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const portfolio = await this.portfolioService.getPortfolio(req.userId);
+    
+    const response = ApiResponse.success(portfolio, 'Portfolio retrieved successfully');
+    res.status(response.statusCode).json(response);
+  });
 
-  addHolding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-      const { ticker, quantity, buyPrice, category } = req.body;
-      const holding = await this.portfolioService.addHolding(req.userId, {
-        ticker,
-        quantity,
-        buyPrice,
-        category,
-      });
-      
-      res.status(201).json({
-        success: true,
-        data: holding,
-        message: 'Holding added successfully',
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+  addHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const { ticker, quantity, buyPrice, category } = req.body;
+    
+    if (!ticker || !quantity || !buyPrice || !category) {
+      throw ApiError.badRequest('Missing required fields: ticker, quantity, buyPrice, category');
     }
-  };
 
-  updateHolding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      const holding = await this.portfolioService.updateHolding(req.userId, id, updates);
-      
-      res.status(200).json({
-        success: true,
-        data: holding,
-        message: 'Holding updated successfully',
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-    }
-  };
+    const holding = await this.portfolioService.addHolding(req.userId, {
+      ticker,
+      quantity,
+      buyPrice,
+      category,
+    });
+    
+    const response = ApiResponse.created(holding, 'Holding added successfully');
+    res.status(response.statusCode).json(response);
+  });
 
-  deleteHolding = async (req: AuthenticatedRequest, res: Response) : Promise<void> => {
-    try {
-      const { id } = req.params;
-      await this.portfolioService.deleteHolding(req.userId, id);
-      
-      res.status(200).json({
-        success: true,
-        message: 'Holding deleted successfully',
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+  updateHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    if (!id) {
+      throw ApiError.badRequest('Holding ID is required');
     }
-  };
 
-  syncPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-      const portfolio = await this.portfolioService.syncWithAngelOne(req.userId);
-      
-      res.status(200).json({
-        success: true,
-        data: portfolio,
-        message: 'Portfolio synced successfully',
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+    const holding = await this.portfolioService.updateHolding(req.userId, id, updates);
+    
+    const response = ApiResponse.success(holding, 'Holding updated successfully');
+    res.status(response.statusCode).json(response);
+  });
+
+  deleteHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const { id } = req.params;
+    
+    if (!id) {
+      throw ApiError.badRequest('Holding ID is required');
     }
-  };
+
+    await this.portfolioService.deleteHolding(req.userId, id);
+    
+    const response = ApiResponse.success(null, 'Holding deleted successfully');
+    res.status(response.statusCode).json(response);
+  });
+
+  syncPortfolio = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const portfolio = await this.portfolioService.syncWithAngelOne(req.userId);
+    
+    const response = ApiResponse.success(portfolio, 'Portfolio synced successfully');
+    res.status(response.statusCode).json(response);
+  });
 }

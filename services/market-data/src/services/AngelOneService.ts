@@ -1,4 +1,5 @@
 import axios from 'axios';
+import ApiError from '../utils/ApiError';
 
 export interface StockPrice {
   symbol: string;
@@ -27,6 +28,10 @@ export class AngelOneService {
   }
 
   async getCurrentPrice(symbol: string): Promise<number> {
+    if (!symbol) {
+      throw ApiError.badRequest('Stock symbol is required');
+    }
+
     try {
       if (!this.apiKey || !this.clientId) {
         // Return mock data if API credentials not available
@@ -39,11 +44,16 @@ export class AngelOneService {
       
     } catch (error) {
       console.error(`Failed to fetch price for ${symbol}:`, error);
+      // Return mock data on error instead of throwing
       return this.getMockPrice(symbol);
     }
   }
 
   async getHistoricalData(symbol: string): Promise<HistoricalData[]> {
+    if (!symbol) {
+      throw ApiError.badRequest('Stock symbol is required');
+    }
+
     try {
       if (!this.apiKey || !this.clientId) {
         // Return mock data if API credentials not available

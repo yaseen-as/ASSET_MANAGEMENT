@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
+import ApiError from '../utils/ApiError';
 
 export interface SignupData {
   email: string;
@@ -33,7 +34,7 @@ export class AuthService {
   async signup(data: SignupData): Promise<LoginResult> {
     const existingUser = await this.userRepository.findByEmail(data.email);
     if (existingUser) {
-      throw new Error('User already exists');
+      throw ApiError.conflict('User with this email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
@@ -60,12 +61,12 @@ export class AuthService {
   async login(email: string, password: string): Promise<LoginResult> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw ApiError.unauthorized('Invalid email or password');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+      throw ApiError.unauthorized('Invalid email or password');
     }
 
     const token = this.generateAccessToken(user.id);
@@ -86,7 +87,7 @@ export class AuthService {
     const tokenRecord = await this.refreshTokenRepository.findByToken(refreshToken);
     
     if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
-      throw new Error('Invalid or expired refresh token');
+      throw ApiError.unauthorized('Invalid or expired refresh token');
     }
 
     // Generate new tokens
@@ -107,17 +108,25 @@ export class AuthService {
   }
 
   private generateAccessToken(userId: string): string {
+    if (!process.env.JWT_SECRET) {
+      throw ApiError.internal('JWT secret not configured');
+    }
+
     return jwt.sign(
       { userId },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
   }
 
   private async generateRefreshToken(userId: string): Promise<string> {
+    if (!process.env.JWT_REFRESH_SECRET) {
+      throw ApiError.internal('JWT refresh secret not configured');
+    }
+
     const token = jwt.sign(
       { userId },
-      process.env.JWT_REFRESH_SECRET!,
+      process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 

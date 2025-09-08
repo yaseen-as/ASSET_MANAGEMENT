@@ -1,5 +1,8 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { AngelOneService } from '../services/AngelOneService';
+import ApiResponse from '../utils/ApiResponse';
+import ApiError from '../utils/ApiError';
+import asyncHandler from '../utils/asyncHandler';
 
 export class MarketController {
   private angelOneService: AngelOneService;
@@ -8,46 +11,40 @@ export class MarketController {
     this.angelOneService = new AngelOneService();
   }
 
-  getPrice = async (req: Request, res: Response) => {
-    try {
-      const { symbol } = req.params;
-      const price = await this.angelOneService.getCurrentPrice(symbol.toUpperCase());
-      
-      res.status(200).json({
-        success: true,
-        data: {
-          symbol: symbol.toUpperCase(),
-          price,
-          timestamp: new Date().toISOString(),
-        },
-        message: 'Price retrieved successfully',
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
+  getPrice = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { symbol } = req.params;
+    
+    if (!symbol) {
+      throw ApiError.badRequest('Stock symbol is required');
     }
-  };
 
-  getHistory = async (req: Request, res: Response) => {
-    try {
-      const { symbol } = req.params;
-      const history = await this.angelOneService.getHistoricalData(symbol.toUpperCase());
-      
-      res.status(200).json({
-        success: true,
-        data: {
-          symbol: symbol.toUpperCase(),
-          history,
-        },
-        message: 'Historical data retrieved successfully',
-      });
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
+    const price = await this.angelOneService.getCurrentPrice(symbol.toUpperCase());
+    
+    const responseData = {
+      symbol: symbol.toUpperCase(),
+      price,
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response = ApiResponse.success(responseData, 'Price retrieved successfully');
+    res.status(response.statusCode).json(response);
+  });
+
+  getHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { symbol } = req.params;
+    
+    if (!symbol) {
+      throw ApiError.badRequest('Stock symbol is required');
     }
-  };
+
+    const history = await this.angelOneService.getHistoricalData(symbol.toUpperCase());
+    
+    const responseData = {
+      symbol: symbol.toUpperCase(),
+      history,
+    };
+    
+    const response = ApiResponse.success(responseData, 'Historical data retrieved successfully');
+    res.status(response.statusCode).json(response);
+  });
 }

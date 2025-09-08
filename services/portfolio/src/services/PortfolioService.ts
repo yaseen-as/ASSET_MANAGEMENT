@@ -1,5 +1,6 @@
 import { HoldingRepository } from '../repositories/HoldingRepository';
 import { MarketDataService } from './MarketDataService';
+import ApiError from '../utils/ApiError';
 
 export interface CreateHoldingData {
   ticker: string;
@@ -27,6 +28,10 @@ export class PortfolioService {
   }
 
   async getPortfolio(userId: string): Promise<PortfolioSummary> {
+    if (!userId) {
+      throw ApiError.badRequest('User ID is required');
+    }
+
     const holdings = await this.holdingRepository.findByUserId(userId);
     
     // Update current prices
@@ -90,6 +95,22 @@ export class PortfolioService {
   }
 
   async addHolding(userId: string, data: CreateHoldingData) {
+    if (!userId) {
+      throw ApiError.badRequest('User ID is required');
+    }
+
+    if (!data.ticker || !data.quantity || !data.buyPrice || !data.category) {
+      throw ApiError.badRequest('All holding fields are required: ticker, quantity, buyPrice, category');
+    }
+
+    if (data.quantity <= 0) {
+      throw ApiError.badRequest('Quantity must be greater than 0');
+    }
+
+    if (data.buyPrice <= 0) {
+      throw ApiError.badRequest('Buy price must be greater than 0');
+    }
+
     return await this.holdingRepository.create({
       ...data,
       userId,
@@ -97,24 +118,60 @@ export class PortfolioService {
   }
 
   async updateHolding(userId: string, id: string, updates: Partial<CreateHoldingData>) {
+    if (!userId) {
+      throw ApiError.badRequest('User ID is required');
+    }
+
+    if (!id) {
+      throw ApiError.badRequest('Holding ID is required');
+    }
+
     const holding = await this.holdingRepository.findById(id);
-    if (!holding || holding.userId !== userId) {
-      throw new Error('Holding not found');
+    if (!holding) {
+      throw ApiError.notFound('Holding not found');
+    }
+
+    if (holding.userId !== userId) {
+      throw ApiError.forbidden('You do not have permission to update this holding');
+    }
+
+    if (updates.quantity !== undefined && updates.quantity <= 0) {
+      throw ApiError.badRequest('Quantity must be greater than 0');
+    }
+
+    if (updates.buyPrice !== undefined && updates.buyPrice <= 0) {
+      throw ApiError.badRequest('Buy price must be greater than 0');
     }
 
     return await this.holdingRepository.update(id, updates);
   }
 
   async deleteHolding(userId: string, id: string) {
+    if (!userId) {
+      throw ApiError.badRequest('User ID is required');
+    }
+
+    if (!id) {
+      throw ApiError.badRequest('Holding ID is required');
+    }
+
     const holding = await this.holdingRepository.findById(id);
-    if (!holding || holding.userId !== userId) {
-      throw new Error('Holding not found');
+    if (!holding) {
+      throw ApiError.notFound('Holding not found');
+    }
+
+    if (holding.userId !== userId) {
+      throw ApiError.forbidden('You do not have permission to delete this holding');
     }
 
     return await this.holdingRepository.delete(id);
   }
 
   async syncWithAngelOne(userId: string): Promise<PortfolioSummary> {
+    if (!userId) {
+      throw ApiError.badRequest('User ID is required');
+    }
+
     // TODO: Implement Angel One API integration
     // For now, just return current portfolio
     console.log('Angel One sync not implemented yet');
