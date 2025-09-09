@@ -33,7 +33,7 @@ export class MarketDataService {
           throw ApiError.notFound(`Stock symbol '${symbol}' not found`);
         }
         
-        if (error.response?.status >= 500) {
+        if (error.response?.status && error.response.status >= 500) {
           throw ApiError.serviceUnavailable('Market data service error');
         }
       }
@@ -68,7 +68,7 @@ export class MarketDataService {
           throw ApiError.notFound(`Historical data for symbol '${symbol}' not found`);
         }
         
-        if (error.response?.status >= 500) {
+        if (error.response?.status && error.response.status >= 500) {
           throw ApiError.serviceUnavailable('Market data service error');
         }
       }

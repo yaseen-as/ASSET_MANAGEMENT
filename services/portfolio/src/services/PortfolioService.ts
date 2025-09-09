@@ -9,6 +9,18 @@ export interface CreateHoldingData {
   category: 'SWING' | 'LONG_TERM';
 }
 
+export interface HoldingData {
+  id: string;
+  userId: string;
+  ticker: string;
+  quantity: number;
+  buyPrice: number;
+  currentPrice: number;
+  category: 'SWING' | 'LONG_TERM';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface PortfolioSummary {
   holdings: any[];
   totalValue: number;
@@ -36,7 +48,7 @@ export class PortfolioService {
     
     // Update current prices
     const updatedHoldings = await Promise.all(
-      holdings.map(async (holding) => {
+      holdings.map(async (holding: HoldingData) => {
         try {
           const currentPrice = await this.marketDataService.getCurrentPrice(holding.ticker);
           const updatedHolding = await this.holdingRepository.updatePrice(holding.id, currentPrice);

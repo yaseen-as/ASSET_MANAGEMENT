@@ -11,7 +11,7 @@ export class AuthController {
     this.authService = new AuthService();
   }
 
-  signup = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  signup = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { email, name, password, angelOneApiKey, angelOneClientId } = req.body;
     
     const result = await this.authService.signup({
@@ -26,7 +26,7 @@ export class AuthController {
     res.status(response.statusCode).json(response);
   });
 
-  login = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  login = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { email, password } = req.body;
     
     const result = await this.authService.login(email, password);
@@ -35,7 +35,7 @@ export class AuthController {
     res.status(response.statusCode).json(response);
   });
 
-  refresh = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  refresh = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { refreshToken } = req.body;
     
     if (!refreshToken) {
@@ -48,7 +48,7 @@ export class AuthController {
     res.status(response.statusCode).json(response);
   });
 
-  logout = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  logout = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { refreshToken } = req.body;
     
     if (refreshToken) {

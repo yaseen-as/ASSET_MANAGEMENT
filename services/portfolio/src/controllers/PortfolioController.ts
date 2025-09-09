@@ -15,14 +15,14 @@ export class PortfolioController {
     this.portfolioService = new PortfolioService();
   }
 
-  getPortfolio = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  getPortfolio = asyncHandler<AuthenticatedRequest>(async (req: AuthenticatedRequest, res: Response/* , next: NextFunction */): Promise<void> => {
     const portfolio = await this.portfolioService.getPortfolio(req.userId);
     
     const response = ApiResponse.success(portfolio, 'Portfolio retrieved successfully');
     res.status(response.statusCode).json(response);
   });
 
-  addHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  addHolding = asyncHandler<AuthenticatedRequest>(async (req: AuthenticatedRequest, res: Response, next?: NextFunction): Promise<void> => {
     const { ticker, quantity, buyPrice, category } = req.body;
     
     if (!ticker || !quantity || !buyPrice || !category) {
@@ -40,7 +40,7 @@ export class PortfolioController {
     res.status(response.statusCode).json(response);
   });
 
-  updateHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  updateHolding = asyncHandler<AuthenticatedRequest>(async (req: AuthenticatedRequest, res: Response, next?: NextFunction): Promise<void> => {
     const { id } = req.params;
     const updates = req.body;
     
@@ -54,7 +54,7 @@ export class PortfolioController {
     res.status(response.statusCode).json(response);
   });
 
-  deleteHolding = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  deleteHolding = asyncHandler<AuthenticatedRequest>(async (req: AuthenticatedRequest, res: Response, next?: NextFunction): Promise<void> => {
     const { id } = req.params;
     
     if (!id) {
@@ -67,7 +67,7 @@ export class PortfolioController {
     res.status(response.statusCode).json(response);
   });
 
-  syncPortfolio = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  syncPortfolio = asyncHandler<AuthenticatedRequest>(async (req: AuthenticatedRequest, res: Response, next?: NextFunction): Promise<void> => {
     const portfolio = await this.portfolioService.syncWithAngelOne(req.userId);
     
     const response = ApiResponse.success(portfolio, 'Portfolio synced successfully');

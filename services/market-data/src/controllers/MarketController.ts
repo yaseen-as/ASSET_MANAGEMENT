@@ -11,7 +11,7 @@ export class MarketController {
     this.angelOneService = new AngelOneService();
   }
 
-  getPrice = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  getPrice = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { symbol } = req.params;
     
     if (!symbol) {
@@ -30,7 +30,7 @@ export class MarketController {
     res.status(response.statusCode).json(response);
   });
 
-  getHistory = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  getHistory = asyncHandler(async (req: Request, res: Response, next?: NextFunction) => {
     const { symbol } = req.params;
     
     if (!symbol) {
