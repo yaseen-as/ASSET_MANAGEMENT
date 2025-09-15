@@ -133,7 +133,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
     networks:
       - app-network
 
@@ -187,7 +187,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
     networks:
       - app-network
 
@@ -240,7 +240,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
     networks:
       - app-network
 
@@ -286,7 +286,7 @@ services:
       - auth-service
       - portfolio-service
       - market-service
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
     networks:
       - app-network
 
@@ -302,7 +302,7 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/node_modules:/app/node_modules
     profiles: ["dev"]
     networks:
       - app-network
@@ -326,7 +326,28 @@ services:
     volumes:
       - ./nginx/ssl:/etc/nginx/ssl
       - ./nginx/logs:/var/log/nginx
-    profiles: ["dev", "prod"]
+    profiles: ["prod"]
+    networks:
+      - app-network
+
+  nginx-dev:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx-dev
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend-dev
+      - auth-service-dev
+      - portfolio-service-dev
+      - market-service-dev
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    profiles: ["dev"]
     networks:
       - app-network
 

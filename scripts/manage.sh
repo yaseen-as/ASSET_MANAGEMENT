@@ -48,7 +48,10 @@ start_dev() {
     export $(grep -v '^#' .env.dev | xargs)
     
     # Start services with dev profile
-    docker-compose --env-file .env.dev --profile dev up -d --build
+
+    # docker-compose --env-file .env.dev --profile dev build
+    # docker-compose --env-file .env.dev --profile dev up -d
+    docker-compose --env-file .env.dev --profile dev up --build
     
     print_status "Development environment started!"
     print_status "Services:"
