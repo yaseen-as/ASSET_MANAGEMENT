@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { portfolioAPI } from '../services/api';
+import { portfolioAPI } from '../../services/api';
 
 export interface Holding {
   id: string;

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store/store';
-import { fetchPortfolio } from '../store/slices/portfolioSlice';
+import { fetchPortfolioAsync } from '../store/slices/portfolioSlice';
 import { logout } from '../store/slices/authSlice';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -14,7 +14,7 @@ const Dashboard: React.FC = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchPortfolio());
+    dispatch(fetchPortfolioAsync());
   }, [dispatch]);
 
   const handleLogout = () => {
