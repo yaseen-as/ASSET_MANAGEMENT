@@ -12,6 +12,9 @@ RUN npm ci --silent
 # Copy source code
 COPY . .
 
+# Generate Prisma client with correct binary target for Alpine
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
 # Build the application
 RUN npm run build
 
@@ -26,15 +29,21 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --only=production --silent
 
+# Install Prisma CLI for generating client
+RUN npm install prisma --save-dev
+
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+
+# Generate Prisma client for production with correct binary target
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Create logs directory
 RUN mkdir -p logs
 
 # Install curl for health checks
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl openssl libc6-compat
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs

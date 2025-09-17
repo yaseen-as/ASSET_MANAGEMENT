@@ -336,7 +336,7 @@ services:
       dockerfile: Dockerfile
     container_name: nginx-dev
     ports:
-      - "80:80"
+      - "8080:80"
       - "443:443"
     depends_on:
       - frontend-dev
