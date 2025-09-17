@@ -3,21 +3,27 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install development dependencies
-COPY package*.json ./
-RUN npm install
+# Install curl for health checks and development tools
+RUN apk add --no-cache curl
 
-# Copy source code
-COPY . .
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm install
 
 # Create logs directory
 RUN mkdir -p logs
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Copy source code (will be overridden by volume mount in dev)
+COPY . .
 
 # Expose port
 EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3002/health || exit 1
 
 # Start with hot reload
 CMD ["npm", "run", "dev"]

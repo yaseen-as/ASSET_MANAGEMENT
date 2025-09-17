@@ -40,15 +40,40 @@ check_dependencies() {
     print_status "Dependencies check passed."
 }
 
+# Check for port conflicts and clean up if needed
+check_ports() {
+    print_status "Checking for port conflicts..."
+    
+    # Check if common ports are in use
+    local ports=(80 443 3000 3001 3002 3003 5432 5433 5434 9090 3100 8080)
+    local conflicts=false
+    
+    for port in "${ports[@]}"; do
+        if lsof -i :$port > /dev/null 2>&1; then
+            print_warning "Port $port is already in use"
+            conflicts=true
+        fi
+    done
+    
+    if [ "$conflicts" = true ]; then
+        print_warning "Stopping conflicting Docker containers..."
+        docker stop $(docker ps -q) 2>/dev/null || true
+        docker system prune -f
+        print_status "Port conflicts resolved"
+    fi
+}
+
 # Start development environment
 start_dev() {
     print_status "Starting development environment..."
+    
+    # Check and resolve port conflicts
+    check_ports
     
     # Load development environment variables
     export $(grep -v '^#' .env.dev | xargs)
     
     # Start services with dev profile
-
     # docker-compose --env-file .env.dev --profile dev build
     # docker-compose --env-file .env.dev --profile dev up -d
     docker-compose --env-file .env.dev --profile dev up --build
@@ -106,9 +131,49 @@ stop_all() {
 # Clean up everything
 cleanup() {
     print_status "Cleaning up..."
+    
+    # Stop all containers
     docker-compose --profile dev --profile test --profile prod --profile monitoring --profile ci down -v
+    
+    # Remove any package-lock.json files from root
+    if [ -f "package-lock.json" ]; then
+        print_warning "Removing package-lock.json from root directory..."
+        rm package-lock.json
+    fi
+    
+    # Clean Docker system
     docker system prune -f
+    
     print_status "Cleanup completed."
+}
+
+# Clean dependencies and reinstall
+clean_deps() {
+    print_status "Cleaning all dependencies and reinstalling..."
+    
+    # Remove node_modules and package-lock.json from all services
+    print_status "Removing node_modules and package-lock.json..."
+    
+    # Root cleanup
+    rm -rf node_modules package-lock.json 2>/dev/null || true
+    
+    # Auth service
+    rm -rf services/auth/node_modules services/auth/package-lock.json 2>/dev/null || true
+    
+    # Portfolio service
+    rm -rf services/portfolio/node_modules services/portfolio/package-lock.json 2>/dev/null || true
+    
+    # Market data service
+    rm -rf services/market-data/node_modules services/market-data/package-lock.json 2>/dev/null || true
+    
+    # Frontend
+    rm -rf frontend/node_modules frontend/package-lock.json 2>/dev/null || true
+    
+    # E2E tests
+    rm -rf e2e/node_modules e2e/package-lock.json 2>/dev/null || true
+    
+    # Reinstall dependencies
+    install_deps
 }
 
 # Run tests
@@ -160,22 +225,90 @@ show_status() {
 install_deps() {
     print_status "Installing dependencies for all services..."
     
+    # For workspace setup, we need to install from root and then create individual package-lock.json files
+    print_status "Installing from root workspace..."
+    npm install
+    
+    # Temporarily move root package.json to create individual package-lock.json files
+    print_status "Creating individual package-lock.json files for Docker builds..."
+    
+    # Backup root package.json
+    mv package.json package.json.workspace.bak
+    
     # Auth service
-    cd services/auth && npm install && cd ../..
+    print_status "Setting up auth service dependencies..."
+    cd services/auth
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found in services/auth"
+        cd ../..
+        mv package.json.workspace.bak package.json
+        exit 1
+    fi
+    # Remove any existing files and install to create fresh package-lock.json
+    rm -f package-lock.json
+    rm -rf node_modules
+    npm install
+    cd ../..
     
     # Portfolio service
-    cd services/portfolio && npm install && cd ../..
+    print_status "Setting up portfolio service dependencies..."
+    cd services/portfolio
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found in services/portfolio"
+        cd ../..
+        mv package.json.workspace.bak package.json
+        exit 1
+    fi
+    rm -f package-lock.json
+    rm -rf node_modules
+    npm install
+    cd ../..
     
     # Market data service
-    cd services/market-data && npm install && cd ../..
+    print_status "Setting up market data service dependencies..."
+    cd services/market-data
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found in services/market-data"
+        cd ../..
+        mv package.json.workspace.bak package.json
+        exit 1
+    fi
+    rm -f package-lock.json
+    rm -rf node_modules
+    npm install
+    cd ../..
     
     # Frontend
-    cd frontend && npm install && cd ..
+    print_status "Setting up frontend dependencies..."
+    cd frontend
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found in frontend"
+        cd ..
+        mv package.json.workspace.bak package.json
+        exit 1
+    fi
+    rm -f package-lock.json
+    rm -rf node_modules
+    npm install
+    cd ..
+    
+    # Restore root package.json
+    mv package.json.workspace.bak package.json
     
     # E2E tests
-    cd e2e && npm install && npx playwright install && cd ..
+    print_status "Setting up E2E test dependencies..."
+    cd e2e
+    if [ ! -f "package.json" ]; then
+        print_error "package.json not found in e2e"
+        cd ..
+        exit 1
+    fi
+    npm install
+    npx playwright install
+    cd ..
     
-    print_status "All dependencies installed!"
+    print_status "All dependencies installed successfully!"
+    print_status "Package-lock.json files created in each service directory."
 }
 
 # Main script logic
@@ -198,6 +331,9 @@ case "$1" in
     "cleanup")
         cleanup
         ;;
+    "clean-deps")
+        clean_deps
+        ;;
     "test-all")
         check_dependencies
         run_tests
@@ -211,19 +347,24 @@ case "$1" in
     "install")
         install_deps
         ;;
+    "check-ports")
+        check_ports
+        ;;
     *)
-        echo "Usage: $0 {dev|test|prod|stop|cleanup|test-all|logs [service]|status|install}"
+        echo "Usage: $0 {dev|test|prod|stop|cleanup|clean-deps|test-all|logs [service]|status|install|check-ports}"
         echo ""
         echo "Commands:"
-        echo "  dev       - Start development environment"
-        echo "  test      - Start test environment" 
-        echo "  prod      - Start production environment"
-        echo "  stop      - Stop all services"
-        echo "  cleanup   - Stop services and clean up volumes"
-        echo "  test-all  - Run all tests"
-        echo "  logs      - Show logs (optionally for specific service)"
-        echo "  status    - Show service status"
-        echo "  install   - Install dependencies for all services"
+        echo "  dev        - Start development environment"
+        echo "  test       - Start test environment" 
+        echo "  prod       - Start production environment"
+        echo "  stop       - Stop all services"
+        echo "  cleanup    - Stop services and clean up volumes"
+        echo "  clean-deps - Clean and reinstall all dependencies"
+        echo "  test-all   - Run all tests"
+        echo "  logs       - Show logs (optionally for specific service)"
+        echo "  status     - Show service status"
+        echo "  install    - Install dependencies for all services"
+        echo "  check-ports- Check for port conflicts and resolve them"
         exit 1
         ;;
 esac
