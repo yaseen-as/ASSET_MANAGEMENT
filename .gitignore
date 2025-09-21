@@ -50,20 +50,17 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Prisma
-services/*/prisma/migrations/
-
 # Temporary files
 *.tmp
 *.temp
 
 # Frontend specific
 frontend/build/
-frontend/.env*
+frontend/.env
 
 # Service specific build outputs
 services/*/dist/
-services/*/.env*
+services/*/.env
 
 # ssl
 *.crt

@@ -45,7 +45,7 @@ check_ports() {
     print_status "Checking for port conflicts..."
     
     # Check if common ports are in use
-    local ports=(80 443 3000 3001 3002 3003 5432 5433 5434 9090 3100 8080)
+    local ports=(80 443 3000 3001 3002 3003 5432 5433 5434 9090 3100 8080 5050)
     local conflicts=false
     
     for port in "${ports[@]}"; do

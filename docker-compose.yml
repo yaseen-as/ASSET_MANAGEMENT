@@ -65,6 +65,22 @@ services:
       - app-network
 
   # =============================================================================
+  # DEV DATABASES VISUALIZATION
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    profiles: ["dev"]
+    networks:
+      - app-network
+  
+
+  # =============================================================================
   # TEST DATABASES
   # =============================================================================
   auth-db-test:
