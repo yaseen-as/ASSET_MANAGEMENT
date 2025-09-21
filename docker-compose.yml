@@ -76,6 +76,8 @@ services:
     ports:
       - "5050:80"
     profiles: ["dev"]
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     networks:
       - app-network
   
@@ -452,6 +454,7 @@ volumes:
   market_db_data:
   prometheus_data:
   grafana_data:
+  pgadmin_data:
   jenkins_data:
 
 # =============================================================================
