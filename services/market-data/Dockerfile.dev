@@ -31,5 +31,7 @@ EXPOSE 3003
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:3003/health || exit 1
 
-# Start with hot reload
-CMD ["npm", "run", "dev"]
+# Start application with hot reload
+# CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && npm run dev"]
+

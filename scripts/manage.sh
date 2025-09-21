@@ -77,7 +77,15 @@ start_dev() {
     # docker-compose --env-file .env.dev --profile dev build
     # docker-compose --env-file .env.dev --profile dev up -d
     docker-compose --env-file .env.dev --profile dev up --build
-    
+
+    cd services/auth
+    npx prisma migrate dev --name "initial"
+    cd ../portfolio
+    npx prisma migrate dev --name "initial"
+    cd ../market-data
+    npx prisma migrate dev --name "initial"
+    cd ../../
+
     print_status "Development environment started!"
     print_status "Services:"
     print_status "  - Frontend: http://localhost:3000"
