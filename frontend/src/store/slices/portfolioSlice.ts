@@ -4,10 +4,14 @@ import { portfolioAPI } from '../../services/api';
 export interface Holding {
   id: string;
   symbol: string;
+  ticker?: string;
   quantity: number;
   avgPrice: number;
   currentPrice: number;
   exchange: 'NSE' | 'BSE';
+  category?: 'swing' | 'long-term';
+  pnl?: number;
+  pnlPercentage?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +20,7 @@ export interface PortfolioState {
   holdings: Holding[];
   totalValue: number;
   totalPnl: number;
+  totalPnlPercentage: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -24,6 +29,7 @@ const initialState: PortfolioState = {
   holdings: [],
   totalValue: 0,
   totalPnl: 0,
+  totalPnlPercentage: 0,
   isLoading: false,
   error: null,
 };
@@ -81,12 +87,27 @@ const portfolioSlice = createSlice({
         state.isLoading = false;
         state.holdings = action.payload.holdings || [];
         
+        // Calculate individual holding P&L values
+        state.holdings = state.holdings.map(holding => ({
+          ...holding,
+          ticker: holding.ticker || holding.symbol, // Use ticker or fallback to symbol
+          pnl: (holding.currentPrice - holding.avgPrice) * holding.quantity,
+          pnlPercentage: holding.avgPrice > 0 ? ((holding.currentPrice - holding.avgPrice) / holding.avgPrice) * 100 : 0
+        }));
+        
         // Calculate totals
         state.totalValue = state.holdings.reduce((total, holding) => 
           total + (holding.currentPrice * holding.quantity), 0);
         
         state.totalPnl = state.holdings.reduce((total, holding) => 
           total + ((holding.currentPrice - holding.avgPrice) * holding.quantity), 0);
+        
+        // Calculate total investment (original cost)
+        const totalInvestment = state.holdings.reduce((total, holding) => 
+          total + (holding.avgPrice * holding.quantity), 0);
+        
+        // Calculate P&L percentage
+        state.totalPnlPercentage = totalInvestment > 0 ? (state.totalPnl / totalInvestment) * 100 : 0;
       })
       .addCase(fetchPortfolioAsync.rejected, (state, action) => {
         state.isLoading = false;

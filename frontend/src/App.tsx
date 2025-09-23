@@ -2,8 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
+import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import PortfolioPage from './pages/PortfolioPage';
 import MarketDataPage from './pages/MarketDataPage';
@@ -21,8 +20,9 @@ function App() {
       <Router>
         <div className="min-h-screen bg-background text-foreground">
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/signup" element={<AuthPage />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
             <Route path="/portfolio" element={<PrivateRoute><Layout><PortfolioPage /></Layout></PrivateRoute>} />
             <Route path="/market-data" element={<PrivateRoute><Layout><MarketDataPage /></Layout></PrivateRoute>} />

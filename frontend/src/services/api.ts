@@ -36,7 +36,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+        window.location.href = '/auth';
         return Promise.reject(refreshError);
       }
     }
