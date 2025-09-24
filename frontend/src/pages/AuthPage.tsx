@@ -33,13 +33,14 @@ const AuthPage: React.FC = () => {
 
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error, token } = useSelector((state: RootState) => state.auth);
+  const { isLoading, error, token, user } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    if (token) {
-      navigate('/');
+    if (token && user) {
+      console.log('Token found, redirecting to dashboard...');
+      navigate('/', { replace: true });
     }
-  }, [token, navigate]);
+  }, [token, user, navigate]);
 
   useEffect(() => {
     setIsLogin(location.pathname === '/login' || location.pathname === '/auth');
@@ -49,8 +50,14 @@ const AuthPage: React.FC = () => {
     dispatch(clearError());
   }, [dispatch]);
 
+  // Debug effect
+  useEffect(() => {
+    console.log('Auth state changed:', { token: !!token, user: !!user, isLoading });
+  }, [token, user, isLoading]);
+
   useEffect(() => {
     if (error) {
+      console.log('Auth error:', error);
       toast.error(error, {
         description: 'Please check your credentials and try again.',
         duration: 4000,
@@ -101,33 +108,46 @@ const AuthPage: React.FC = () => {
 
     try {
       if (isLogin) {
-        await dispatch(loginAsync({ 
+        const result = await dispatch(loginAsync({ 
           email: formData.email, 
           password: formData.password 
         })).unwrap();
         
+        console.log('Login successful, result:', result);
+        
         toast.success('Login successful!', {
           description: 'Welcome back!',
-          duration: 3000,
+          duration: 2000,
           position: 'top-right',
           richColors: true,
         });
+        
       } else {
-        await dispatch(signupAsync({ 
+        const result = await dispatch(signupAsync({ 
           email: formData.email, 
           password: formData.password,
           name: formData.fullName || ''
         })).unwrap();
         
+        console.log('Signup successful, result:', result);
+        
         toast.success('Account created successfully!', {
           description: 'Welcome to Asset Manager!',
-          duration: 3000,
+          duration: 2000,
           position: 'top-right',
           richColors: true,
         });
+        
       }
     } catch (error) {
-      // Error is handled by the useEffect above
+      console.error('Auth error:', error);
+      // For testing purposes, show a more detailed error
+      toast.error(`Authentication failed: ${error}`, {
+        description: 'Please check the console for more details',
+        duration: 5000,
+        position: 'top-right',
+        richColors: true,
+      });
     }
   };
 

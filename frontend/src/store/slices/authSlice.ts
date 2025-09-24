@@ -21,11 +21,28 @@ const initialState: AuthState = {
   error: null,
 };
 
+// Initialize user from localStorage if token exists
+if (typeof window !== 'undefined') {
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+  if (storedToken && storedUser) {
+    try {
+      initialState.token = storedToken;
+      initialState.user = JSON.parse(storedUser);
+    } catch (error) {
+      // If parsing fails, clear invalid data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+  }
+}
+
 export const loginAsync = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }) => {
     const response = await authAPI.login(email, password);
     localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
     return response;
   }
 );
@@ -35,6 +52,7 @@ export const signupAsync = createAsyncThunk(
   async ({ email, password, name }: { email: string; password: string; name: string }) => {
     const response = await authAPI.signup(email, password, name);
     localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
     return response;
   }
 );
@@ -47,6 +65,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     },
     clearError: (state) => {
       state.error = null;

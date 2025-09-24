@@ -46,11 +46,39 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: async (email: string, password: string) => {
+    // Development mode mock for testing redirect
+    if (import.meta.env.DEV && !API_BASE_URL.includes('localhost:8080')) {
+      console.log('Mock login for development');
+      return {
+        success: true,
+        token: 'mock-jwt-token-' + Date.now(),
+        user: {
+          id: '1',
+          email: email,
+          name: email.split('@')[0]
+        }
+      };
+    }
+    
     const response = await api.post('/auth/login', { email, password });
     return response.data;
   },
   
   signup: async (email: string, password: string, name: string) => {
+    // Development mode mock for testing redirect
+    if (import.meta.env.DEV && !API_BASE_URL.includes('localhost:8080')) {
+      console.log('Mock signup for development');
+      return {
+        success: true,
+        token: 'mock-jwt-token-' + Date.now(),
+        user: {
+          id: '1',
+          email: email,
+          name: name
+        }
+      };
+    }
+    
     const response = await api.post('/auth/signup', { email, password, name });
     return response.data;
   },
