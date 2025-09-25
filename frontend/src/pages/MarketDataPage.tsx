@@ -1,221 +1,275 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '../store/store';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Search,
+  Filter,
+  RefreshCw,
+  Star,
+  Activity,
+  BarChart3,
+  DollarSign,
+  Clock,
+  Globe,
+  Plus
+} from 'lucide-react';
+
+// Enhanced mock market data
+const marketIndices = [
+  { name: 'NIFTY 50', value: 23486.50, change: 156.75, changePercent: 0.67 },
+  { name: 'SENSEX', value: 77234.20, change: 298.45, changePercent: 0.39 },
+  { name: 'NIFTY BANK', value: 51678.90, change: -234.60, changePercent: -0.45 },
+  { name: 'NIFTY IT', value: 32145.80, change: 412.30, changePercent: 1.30 }
+];
+
+const topStocks = [
+  { symbol: 'RELIANCE', price: 2456.75, change: 32.50, changePercent: 1.34, volume: '2.5M', marketCap: '16.6L Cr', high: 2478.90, low: 2435.20 },
+  { symbol: 'TCS', price: 3421.80, change: -15.20, changePercent: -0.44, volume: '1.8M', marketCap: '12.4L Cr', high: 3450.50, low: 3410.30 },
+  { symbol: 'INFY', price: 1523.45, change: 28.90, changePercent: 1.93, volume: '3.2M', marketCap: '6.3L Cr', high: 1540.20, low: 1510.80 },
+  { symbol: 'HDFC', price: 1654.30, change: 42.75, changePercent: 2.65, volume: '2.1M', marketCap: '9.1L Cr', high: 1670.45, low: 1640.20 },
+  { symbol: 'ICICIBANK', price: 987.60, change: -15.40, changePercent: -1.53, volume: '4.5M', marketCap: '6.9L Cr', high: 1005.80, low: 982.30 },
+  { symbol: 'WIPRO', price: 420.30, change: 8.50, changePercent: 2.06, volume: '2.8M', marketCap: '2.3L Cr', high: 425.60, low: 415.20 }
+];
+
+const sectorPerformance = [
+  { sector: 'Banking', change: 2.34, stocks: ['HDFC', 'ICICI', 'SBI'] },
+  { sector: 'IT', change: 1.87, stocks: ['TCS', 'INFY', 'WIPRO'] },
+  { sector: 'Auto', change: -0.95, stocks: ['MARUTI', 'M&M', 'TATA MOTORS'] },
+  { sector: 'Pharma', change: 3.21, stocks: ['SUN PHARMA', 'CIPLA', 'LUPIN'] },
+  { sector: 'FMCG', change: 0.78, stocks: ['HUL', 'ITC', 'NESTLE'] },
+  { sector: 'Energy', change: 1.45, stocks: ['RELIANCE', 'ONGC', 'IOC'] }
+];
+
+const marketNews = [
+  { 
+    headline: 'Markets hit record highs as IT sector shows strong growth',
+    summary: 'Technology stocks led the rally with INFY and TCS showing exceptional performance in Q3 results.',
+    time: '15 minutes ago'
+  },
+  {
+    headline: 'Banking stocks rally on positive quarterly results', 
+    summary: 'HDFC Bank and ICICI Bank reported better-than-expected earnings for the quarter.',
+    time: '1 hour ago'
+  },
+  {
+    headline: 'Oil prices impact energy sector performance today',
+    summary: 'Rising crude oil prices boost energy sector stocks including Reliance and ONGC.',
+    time: '2 hours ago'
+  }
+];
 
 const MarketDataPage: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'gainers' | 'losers'>('all');
+  
+  const filteredStocks = topStocks.filter(stock => {
+    const matchesSearch = stock.symbol.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = 
+      selectedCategory === 'all' || 
+      (selectedCategory === 'gainers' && stock.change > 0) ||
+      (selectedCategory === 'losers' && stock.change < 0);
+    return matchesSearch && matchesCategory;
+  });
 
-  // Mock market data
-  const marketData = [
-    {
-      symbol: 'RELIANCE',
-      price: 2456.75,
-      change: 23.45,
-      changePercent: 0.96,
-      volume: 1234567,
-      high: 2478.90,
-      low: 2435.20,
-    },
-    {
-      symbol: 'TCS',
-      price: 3567.80,
-      change: -45.20,
-      changePercent: -1.25,
-      volume: 987654,
-      high: 3598.50,
-      low: 3545.30,
-    },
-    {
-      symbol: 'INFY',
-      price: 1834.65,
-      change: 18.30,
-      changePercent: 1.01,
-      volume: 2345678,
-      high: 1847.90,
-      low: 1825.40,
-    },
-    {
-      symbol: 'HINDUNILVR',
-      price: 2789.45,
-      change: -12.55,
-      changePercent: -0.45,
-      volume: 567890,
-      high: 2801.20,
-      low: 2776.80,
-    },
-    {
-      symbol: 'HDFCBANK',
-      price: 1678.90,
-      change: 31.20,
-      changePercent: 1.89,
-      volume: 3456789,
-      high: 1687.45,
-      low: 1665.30,
-    },
-  ];
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
-
-  const formatNumber = (num: number) => {
-    return num.toLocaleString('en-IN');
-  };
-
-  const formatPercentage = (percentage: number) => {
-    return `${percentage >= 0 ? '+' : ''}${percentage.toFixed(2)}%`;
-  };
+  const StatCard = ({ title, value, change, changePercent, icon: Icon }) => (
+    <div className="bg-gray-800 border-2 border-gray-700 p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-400 uppercase tracking-wide">{title}</p>
+          <p className="text-2xl font-bold text-gray-100 mt-2">{value.toLocaleString()}</p>
+          <div className={`flex items-center mt-2 ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {change >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+            <span className="text-sm font-semibold ml-1">
+              {change >= 0 ? '+' : ''}{change.toFixed(2)} ({changePercent.toFixed(2)}%)
+            </span>
+          </div>
+        </div>
+        <div className="p-3 bg-gray-700 text-gray-100 rounded-full">
+          <Icon size={24} />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Market Data</h1>
-          <Button variant="outline">
-            <Activity className="h-4 w-4 mr-2" />
-            Refresh Data
-          </Button>
+    <div className="min-h-screen bg-gray-900">
+      {/* Header */}
+      <div className="bg-gray-800 border-b-2 border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <h1 className="text-2xl font-bold text-gray-100">Market Data</h1>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-gray-400">
+                <Clock size={16} />
+                <span className="text-sm">Last updated: {new Date().toLocaleTimeString()}</span>
+              </div>
+              <button className="p-2 border-2 border-gray-500 hover:bg-gray-600 hover:text-gray-100 transition-colors">
+                <RefreshCw size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Market Indices */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {marketIndices.map((index, i) => (
+            <StatCard
+              key={i}
+              title={index.name}
+              value={index.value}
+              change={index.change}
+              changePercent={index.changePercent}
+              icon={BarChart3}
+            />
+          ))}
         </div>
 
-        {/* Market Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">NIFTY 50</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">21,456.78</div>
-              <p className="text-xs text-green-600">+234.56 (+1.11%)</p>
-            </CardContent>
-          </Card>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Stock Search and Filter */}
+          <div className="lg:col-span-2 bg-gray-800 border-2 border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-100">Live Stocks</h2>
+              <div className="flex items-center space-x-2 text-gray-400">
+                <Activity size={16} className="animate-pulse" />
+                <span className="text-sm">Live</span>
+              </div>
+            </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">SENSEX</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">71,234.89</div>
-              <p className="text-xs text-green-600">+567.89 (+0.80%)</p>
-            </CardContent>
-          </Card>
+            {/* Search and Filter */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search stocks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Filter className="text-gray-400" size={20} />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value as 'all' | 'gainers' | 'losers')}
+                  className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                >
+                  <option value="all">All Stocks</option>
+                  <option value="gainers">Top Gainers</option>
+                  <option value="losers">Top Losers</option>
+                </select>
+              </div>
+            </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Bank NIFTY</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">45,123.45</div>
-              <p className="text-xs text-red-600">-123.45 (-0.27%)</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">IT Index</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">34,567.12</div>
-              <p className="text-xs text-green-600">+89.34 (+0.26%)</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Top Stocks Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="h-5 w-5 mr-2" />
-              Top Stocks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            {/* Stocks Table */}
             <div className="overflow-x-auto">
-              <table className="w-full table-auto">
+              <table className="min-w-full divide-y divide-gray-700">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Symbol</th>
-                    <th className="text-left py-3 px-4">Price</th>
-                    <th className="text-left py-3 px-4">Change</th>
-                    <th className="text-left py-3 px-4">Change %</th>
-                    <th className="text-left py-3 px-4">Volume</th>
-                    <th className="text-left py-3 px-4">High</th>
-                    <th className="text-left py-3 px-4">Low</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Symbol</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Change</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">High/Low</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Volume</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {marketData.map((stock) => (
-                    <tr key={stock.symbol} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium">{stock.symbol}</td>
-                      <td className="py-3 px-4">{formatCurrency(stock.price)}</td>
-                      <td className={`py-3 px-4 font-medium ${stock.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {stock.change >= 0 ? '+' : ''}{stock.change.toFixed(2)}
+                <tbody className="divide-y divide-gray-700">
+                  {filteredStocks.map((stock, index) => (
+                    <tr key={index} className="hover:bg-gray-750 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                            <span className="text-xs font-bold text-gray-100">{stock.symbol[0]}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-100">{stock.symbol}</span>
+                            <div className="text-xs text-gray-400">{stock.marketCap}</div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <Badge variant={stock.changePercent >= 0 ? 'secondary' : 'destructive'}>
-                          {formatPercentage(stock.changePercent)}
-                        </Badge>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-100">₹{stock.price.toLocaleString()}</span>
                       </td>
-                      <td className="py-3 px-4">{formatNumber(stock.volume)}</td>
-                      <td className="py-3 px-4">{formatCurrency(stock.high)}</td>
-                      <td className="py-3 px-4">{formatCurrency(stock.low)}</td>
-                      <td className="py-3 px-4">
-                        <Button variant="outline" size="sm">
-                          Add to Portfolio
-                        </Button>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm font-medium ${stock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          <div className="flex items-center">
+                            {stock.change >= 0 ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
+                            {stock.change >= 0 ? '+' : ''}₹{stock.change.toFixed(2)}
+                          </div>
+                          <div className="text-xs">({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-100">
+                          <div>H: ₹{stock.high.toLocaleString()}</div>
+                          <div className="text-gray-400">L: ₹{stock.low.toLocaleString()}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{stock.volume}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <button className="p-1 border border-gray-500 hover:bg-gray-600 hover:text-gray-100 transition-colors">
+                            <Star size={16} />
+                          </button>
+                          <button className="p-1 border border-gray-500 hover:bg-gray-600 hover:text-gray-100 transition-colors">
+                            <Plus size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Sector Performance */}
+          <div className="bg-gray-800 border-2 border-gray-700 p-6">
+            <h2 className="text-xl font-bold text-gray-100 mb-6 flex items-center">
+              <Globe className="mr-2" size={20} />
+              Sector Performance
+            </h2>
+            <div className="space-y-4">
+              {sectorPerformance.map((sector, index) => (
+                <div key={index} className="border border-gray-600 p-4 hover:bg-gray-700 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-gray-100">{sector.sector}</h3>
+                    <span className={`text-sm font-semibold ${sector.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {sector.change >= 0 ? '+' : ''}{sector.change.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-400 mb-2">
+                    Top stocks: {sector.stocks.join(', ')}
+                  </div>
+                  <div className="w-full bg-gray-600 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${sector.change >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(Math.abs(sector.change) * 20, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Market News Section */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Market News</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="border-b pb-4">
-                <h3 className="font-semibold text-lg">Sensex hits new all-time high</h3>
-                <p className="text-gray-600 mt-2">
-                  The BSE Sensex crossed 71,000 for the first time, driven by strong buying in banking and IT stocks.
-                </p>
-                <span className="text-sm text-gray-500">2 hours ago</span>
+        <div className="bg-gray-800 border-2 border-gray-700 p-6">
+          <h2 className="text-xl font-bold text-gray-100 mb-6">Market News & Updates</h2>
+          <div className="space-y-4">
+            {marketNews.map((news, index) => (
+              <div key={index} className="border border-gray-600 p-4 hover:bg-gray-700 transition-colors">
+                <h3 className="font-semibold text-gray-100 mb-2">{news.headline}</h3>
+                <p className="text-sm text-gray-300 mb-2">{news.summary}</p>
+                <p className="text-xs text-gray-400">{news.time}</p>
               </div>
-              
-              <div className="border-b pb-4">
-                <h3 className="font-semibold text-lg">RBI maintains repo rate at 6.50%</h3>
-                <p className="text-gray-600 mt-2">
-                  The Reserve Bank of India kept the key policy rate unchanged, citing inflation concerns.
-                </p>
-                <span className="text-sm text-gray-500">5 hours ago</span>
-              </div>
-              
-              <div className="border-b pb-4">
-                <h3 className="font-semibold text-lg">Tech stocks rally on AI optimism</h3>
-                <p className="text-gray-600 mt-2">
-                  Information technology stocks gained momentum as investors showed confidence in AI-driven growth.
-                </p>
-                <span className="text-sm text-gray-500">1 day ago</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

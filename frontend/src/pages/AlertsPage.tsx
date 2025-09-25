@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
-import { Bell, Plus, Trash2, Edit, AlertTriangle } from 'lucide-react';
+import { 
+  Bell, 
+  Plus, 
+  Trash2, 
+  Edit, 
+  AlertTriangle, 
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Play,
+  Pause
+} from 'lucide-react';
 
 interface Alert {
   id: string;
@@ -45,6 +51,15 @@ const AlertsPage: React.FC = () => {
       isActive: false,
       createdAt: '2024-01-13',
     },
+    {
+      id: '4',
+      symbol: 'HDFC',
+      type: 'price_above',
+      value: 1650,
+      currentValue: 1675.30,
+      isActive: true,
+      createdAt: '2024-01-12',
+    },
   ]);
 
   const [showAddAlert, setShowAddAlert] = useState(false);
@@ -54,6 +69,23 @@ const AlertsPage: React.FC = () => {
     value: '',
   });
 
+  const StatCard = ({ title, value, change, changePercent, icon: Icon, color = 'text-gray-100' }) => (
+    <div className="bg-gray-800 border-2 border-gray-700 p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-400 uppercase tracking-wide">{title}</p>
+          <p className={`text-2xl font-bold mt-2 ${color}`}>{value}</p>
+          {change && (
+            <div className="text-xs text-gray-500 mt-1">{change}</div>
+          )}
+        </div>
+        <div className="p-3 bg-gray-700 text-gray-100 rounded-full">
+          <Icon size={24} />
+        </div>
+      </div>
+    </div>
+  );
+
   const handleAddAlert = () => {
     if (newAlert.symbol && newAlert.value) {
       const alert: Alert = {
@@ -61,7 +93,7 @@ const AlertsPage: React.FC = () => {
         symbol: newAlert.symbol.toUpperCase(),
         type: newAlert.type,
         value: parseFloat(newAlert.value),
-        currentValue: 0, // Will be updated by market data
+        currentValue: 0,
         isActive: true,
         createdAt: new Date().toISOString().split('T')[0],
       };
@@ -93,161 +125,176 @@ const AlertsPage: React.FC = () => {
   };
 
   const getAlertStatus = (alert: Alert) => {
-    if (!alert.isActive) return { status: 'inactive', color: 'gray' };
+    if (!alert.isActive) return { status: 'inactive', color: 'gray-500', bgColor: 'bg-gray-700' };
     
     switch (alert.type) {
       case 'price_above':
         return alert.currentValue >= alert.value 
-          ? { status: 'triggered', color: 'red' }
-          : { status: 'active', color: 'green' };
+          ? { status: 'triggered', color: 'red-400', bgColor: 'bg-red-900/20' }
+          : { status: 'active', color: 'green-400', bgColor: 'bg-green-900/20' };
       case 'price_below':
         return alert.currentValue <= alert.value 
-          ? { status: 'triggered', color: 'red' }
-          : { status: 'active', color: 'green' };
+          ? { status: 'triggered', color: 'red-400', bgColor: 'bg-red-900/20' }
+          : { status: 'active', color: 'green-400', bgColor: 'bg-green-900/20' };
       case 'change_percent':
         return Math.abs(alert.currentValue) >= alert.value 
-          ? { status: 'triggered', color: 'red' }
-          : { status: 'active', color: 'green' };
+          ? { status: 'triggered', color: 'red-400', bgColor: 'bg-red-900/20' }
+          : { status: 'active', color: 'green-400', bgColor: 'bg-green-900/20' };
       default:
-        return { status: 'active', color: 'green' };
+        return { status: 'active', color: 'green-400', bgColor: 'bg-green-900/20' };
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Price Alerts</h1>
-          <Button onClick={() => setShowAddAlert(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Alert
-          </Button>
-        </div>
+  const triggeredAlerts = alerts.filter(a => {
+    const status = getAlertStatus(a);
+    return status.status === 'triggered';
+  }).length;
 
+  return (
+    <div className="min-h-screen bg-gray-900">
+      {/* Header */}
+      <div className="bg-gray-800 border-b-2 border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <Bell className="mr-3 text-yellow-400" size={28} />
+              <h1 className="text-2xl font-bold text-gray-100">Price Alerts</h1>
+            </div>
+            <button 
+              onClick={() => setShowAddAlert(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 border-2 border-blue-500 text-white hover:bg-blue-700 transition-colors font-semibold"
+            >
+              <Plus size={16} />
+              <span>Add Alert</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Alert Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
-              <Bell className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alerts.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {alerts.filter(a => a.isActive).length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Triggered</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {alerts.filter(a => {
-                  const status = getAlertStatus(a);
-                  return status.status === 'triggered';
-                }).length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inactive</CardTitle>
-              <Bell className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-400">
-                {alerts.filter(a => !a.isActive).length}
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Alerts"
+            value={alerts.length.toString()}
+            change="All time"
+            changePercent={null}
+            icon={Bell}
+          />
+          <StatCard
+            title="Active Alerts"
+            value={alerts.filter(a => a.isActive).length.toString()}
+            change="Currently monitoring"
+            changePercent={null}
+            icon={Activity}
+            color="text-green-400"
+          />
+          <StatCard
+            title="Triggered"
+            value={triggeredAlerts.toString()}
+            change="Needs attention"
+            changePercent={null}
+            icon={AlertTriangle}
+            color="text-red-400"
+          />
+          <StatCard
+            title="Inactive"
+            value={alerts.filter(a => !a.isActive).length.toString()}
+            change="Paused alerts"
+            changePercent={null}
+            icon={Pause}
+            color="text-gray-400"
+          />
         </div>
 
         {/* Alerts List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Alerts</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bg-gray-800 border-2 border-gray-700">
+          <div className="p-6 border-b-2 border-gray-700">
+            <h2 className="text-xl font-bold text-gray-100 flex items-center">
+              <AlertTriangle className="mr-2" size={20} />
+              Your Alerts
+            </h2>
+          </div>
+          
+          <div className="p-6">
             {alerts.length === 0 ? (
-              <div className="text-center py-8">
-                <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">No alerts set up yet</p>
-                <Button onClick={() => setShowAddAlert(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Alert
-                </Button>
+              <div className="text-center py-12">
+                <Bell className="h-16 w-16 text-gray-400 mx-auto mb-6" />
+                <p className="text-gray-400 text-lg mb-6">No alerts set up yet</p>
+                <button 
+                  onClick={() => setShowAddAlert(true)}
+                  className="flex items-center space-x-2 px-6 py-3 bg-blue-600 border-2 border-blue-500 text-white hover:bg-blue-700 transition-colors font-semibold mx-auto"
+                >
+                  <Plus size={16} />
+                  <span>Create Your First Alert</span>
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
                 {alerts.map((alert) => {
                   const status = getAlertStatus(alert);
                   return (
-                    <div key={alert.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div key={alert.id} className={`border-2 border-gray-600 p-6 hover:bg-gray-700 transition-all duration-300 ${status.bgColor}`}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-semibold text-lg">{alert.symbol}</h3>
-                            <Badge 
-                              variant={
-                                status.status === 'triggered' ? 'destructive' :
-                                status.status === 'active' ? 'secondary' : 'outline'
-                              }
-                            >
-                              {status.status}
-                            </Badge>
+                          <div className="flex items-center space-x-4 mb-4">
+                            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-bold text-gray-100">{alert.symbol[0]}</span>
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-xl text-gray-100">{alert.symbol}</h3>
+                              <div className={`inline-flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wide text-${status.color} border border-${status.color}`}>
+                                {status.status === 'triggered' && <AlertTriangle size={12} className="mr-1" />}
+                                {status.status === 'active' && <Activity size={12} className="mr-1" />}
+                                {status.status === 'inactive' && <Pause size={12} className="mr-1" />}
+                                {status.status}
+                              </div>
+                            </div>
                           </div>
                           
-                          <div className="text-sm text-gray-600 space-y-1">
-                            <p>
-                              <strong>Condition:</strong> {getAlertTypeLabel(alert.type)} ₹{alert.value}
-                              {alert.type === 'change_percent' && '%'}
-                            </p>
-                            <p>
-                              <strong>Current:</strong> ₹{alert.currentValue}
-                              {alert.type === 'change_percent' && '%'}
-                            </p>
-                            <p>
-                              <strong>Created:</strong> {new Date(alert.createdAt).toLocaleDateString()}
-                            </p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-gray-400 font-semibold">Condition</p>
+                              <p className="text-gray-100">{getAlertTypeLabel(alert.type)} ₹{alert.value}
+                                {alert.type === 'change_percent' && '%'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 font-semibold">Current Value</p>
+                              <p className={`font-semibold ${
+                                status.status === 'triggered' ? 'text-red-400' : 'text-gray-100'
+                              }`}>
+                                ₹{alert.currentValue}{alert.type === 'change_percent' && '%'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 font-semibold">Created</p>
+                              <p className="text-gray-100">{new Date(alert.createdAt).toLocaleDateString()}</p>
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
+                        <div className="flex items-center space-x-3 ml-6">
+                          <button
                             onClick={() => handleToggleAlert(alert.id)}
+                            className={`px-3 py-2 border-2 text-sm font-semibold transition-colors flex items-center space-x-1 ${
+                              alert.isActive 
+                                ? 'border-yellow-600 text-yellow-400 hover:bg-yellow-900/20' 
+                                : 'border-green-600 text-green-400 hover:bg-green-900/20'
+                            }`}
                           >
-                            {alert.isActive ? 'Pause' : 'Activate'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            {alert.isActive ? <Pause size={14} /> : <Play size={14} />}
+                            <span>{alert.isActive ? 'Pause' : 'Activate'}</span>
+                          </button>
+                          <button className="px-3 py-2 border-2 border-gray-600 text-gray-400 hover:bg-gray-600 hover:text-gray-100 transition-colors">
+                            <Edit size={16} />
+                          </button>
+                          <button
                             onClick={() => handleDeleteAlert(alert.id)}
-                            className="text-red-600 hover:text-red-700"
+                            className="px-3 py-2 border-2 border-red-600 text-red-400 hover:bg-red-900/20 transition-colors"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -255,74 +302,74 @@ const AlertsPage: React.FC = () => {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      </div>
 
-        {/* Add Alert Modal */}
-        {showAddAlert && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-semibold mb-4">Add New Alert</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="symbol">Stock Symbol</Label>
-                  <Input
-                    id="symbol"
-                    value={newAlert.symbol}
-                    onChange={(e) => setNewAlert({ ...newAlert, symbol: e.target.value })}
-                    placeholder="e.g., RELIANCE"
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="type">Alert Type</Label>
-                  <select
-                    id="type"
-                    value={newAlert.type}
-                    onChange={(e) => setNewAlert({ ...newAlert, type: e.target.value as Alert['type'] })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="price_above">Price Above</option>
-                    <option value="price_below">Price Below</option>
-                    <option value="change_percent">Change Percentage</option>
-                  </select>
-                </div>
-
-                <div>
-                  <Label htmlFor="value">
-                    Target Value
-                    {newAlert.type === 'change_percent' && ' (%)'}
-                    {(newAlert.type === 'price_above' || newAlert.type === 'price_below') && ' (₹)'}
-                  </Label>
-                  <Input
-                    id="value"
-                    type="number"
-                    value={newAlert.value}
-                    onChange={(e) => setNewAlert({ ...newAlert, value: e.target.value })}
-                    placeholder="Enter target value"
-                    className="mt-1"
-                  />
-                </div>
+      {/* Add Alert Modal */}
+      {showAddAlert && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border-2 border-gray-700 p-8 w-full max-w-md">
+            <h2 className="text-2xl font-bold text-gray-100 mb-6">Add New Alert</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">Stock Symbol</label>
+                <input
+                  type="text"
+                  value={newAlert.symbol}
+                  onChange={(e) => setNewAlert({ ...newAlert, symbol: e.target.value })}
+                  placeholder="e.g., RELIANCE"
+                  className="w-full px-4 py-3 bg-gray-700 border-2 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                />
               </div>
 
-              <div className="flex space-x-3 pt-6">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAddAlert(false)}
-                  className="flex-1"
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">Alert Type</label>
+                <select
+                  value={newAlert.type}
+                  onChange={(e) => setNewAlert({ ...newAlert, type: e.target.value as Alert['type'] })}
+                  className="w-full px-4 py-3 bg-gray-700 border-2 border-gray-600 text-gray-100 focus:border-blue-500 focus:outline-none"
                 >
-                  Cancel
-                </Button>
-                <Button onClick={handleAddAlert} className="flex-1">
-                  Add Alert
-                </Button>
+                  <option value="price_above">Price Above</option>
+                  <option value="price_below">Price Below</option>
+                  <option value="change_percent">Change Percentage</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  Target Value
+                  {newAlert.type === 'change_percent' && ' (%)'}
+                  {(newAlert.type === 'price_above' || newAlert.type === 'price_below') && ' (₹)'}
+                </label>
+                <input
+                  type="number"
+                  value={newAlert.value}
+                  onChange={(e) => setNewAlert({ ...newAlert, value: e.target.value })}
+                  placeholder="Enter target value"
+                  className="w-full px-4 py-3 bg-gray-700 border-2 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                />
               </div>
             </div>
+
+            <div className="flex space-x-4 pt-8">
+              <button 
+                onClick={() => setShowAddAlert(false)}
+                className="flex-1 px-4 py-3 border-2 border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors font-semibold"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddAlert}
+                className="flex-1 px-4 py-3 bg-blue-600 border-2 border-blue-500 text-white hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Add Alert
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
