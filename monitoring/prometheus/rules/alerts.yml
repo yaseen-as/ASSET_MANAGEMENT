@@ -70,3 +70,166 @@ groups:
     annotations:
       summary: "High failed login attempts"
       description: "More than 10 failed login attempts per second for 2 minutes"
+
+- name: streaming_monitoring
+  rules:
+  # Redis connection issues
+  - alert: RedisConnectionFailure
+    expr: up{job="redis"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Redis connection failure"
+      description: "Redis server is not responding for more than 1 minute"
+
+  # High Redis memory usage
+  - alert: RedisHighMemoryUsage
+    expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis high memory usage"
+      description: "Redis memory usage is above 90% for 5 minutes"
+
+  # Kafka broker down
+  - alert: KafkaBrokerDown
+    expr: up{job="kafka"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Kafka broker is down"
+      description: "Kafka broker is not responding for more than 1 minute"
+
+  # High Kafka consumer lag
+  - alert: KafkaConsumerLag
+    expr: kafka_consumer_lag_sum > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High Kafka consumer lag"
+      description: "Kafka consumer lag is above 1000 messages for 5 minutes"
+
+  # WebSocket connection issues
+  - alert: HighWebSocketDisconnections
+    expr: rate(websocket_disconnections_total[5m]) > 5
+    for: 3m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High WebSocket disconnection rate"
+      description: "WebSocket disconnection rate is above 5 per second for 3 minutes"
+
+- name: security_monitoring
+  rules:
+  # Suspicious login activity
+  - alert: SuspiciousLoginActivity
+    expr: rate(auth_login_attempts_total{status="failed"}[1m]) > 5
+    for: 1m
+    labels:
+      severity: critical
+      alertname: SecurityAlert
+    annotations:
+      summary: "Suspicious login activity detected"
+      description: "More than 5 failed login attempts per second detected"
+
+  # Multiple failed logins from same IP
+  - alert: BruteForceAttack
+    expr: sum(rate(auth_login_attempts_total{status="failed"}[5m])) by (client_ip) > 20
+    for: 2m
+    labels:
+      severity: critical
+      alertname: SecurityAlert
+    annotations:
+      summary: "Possible brute force attack"
+      description: "IP {{ $labels.client_ip }} has more than 20 failed login attempts in 5 minutes"
+
+  # Unusual API access patterns
+  - alert: UnusualAPIAccess
+    expr: rate(http_requests_total[5m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+      alertname: SecurityAlert
+    annotations:
+      summary: "Unusual API access pattern"
+      description: "API request rate is unusually high (>100 req/sec) for 5 minutes"
+
+  # Privilege escalation attempts
+  - alert: PrivilegeEscalationAttempt
+    expr: increase(auth_privilege_escalation_attempts_total[1m]) > 0
+    for: 0s
+    labels:
+      severity: critical
+      alertname: SecurityAlert
+    annotations:
+      summary: "Privilege escalation attempt detected"
+      description: "Unauthorized privilege escalation attempt detected"
+
+  # SQL injection attempts
+  - alert: SQLInjectionAttempt
+    expr: increase(http_requests_total{path=~".*('.*(union|select|insert|delete|drop|exec|script).*)"} [1m]) > 0
+    for: 0s
+    labels:
+      severity: critical
+      alertname: SecurityAlert
+    annotations:
+      summary: "SQL injection attempt detected"
+      description: "Potential SQL injection attempt in HTTP request"
+
+  # Wazuh agent disconnection
+  - alert: WazuhAgentDisconnected
+    expr: wazuh_agent_status{status="disconnected"} == 1
+    for: 2m
+    labels:
+      severity: warning
+      alertname: SecurityAlert
+    annotations:
+      summary: "Wazuh agent disconnected"
+      description: "Wazuh agent {{ $labels.agent_name }} has been disconnected for more than 2 minutes"
+
+  # High security event rate
+  - alert: HighSecurityEventRate
+    expr: rate(wazuh_security_events_total[5m]) > 10
+    for: 3m
+    labels:
+      severity: warning
+      alertname: SecurityAlert
+    annotations:
+      summary: "High security event rate detected"
+      description: "Wazuh is detecting more than 10 security events per second for 3 minutes"
+
+- name: infrastructure_monitoring
+  rules:
+  # Disk space usage
+  - alert: DiskSpaceUsage
+    expr: (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) / node_filesystem_size_bytes{fstype!="tmpfs"} > 0.85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High disk space usage"
+      description: "Disk usage is above 85% on {{ $labels.instance }}"
+
+  # Network connectivity issues
+  - alert: NetworkConnectivityIssue
+    expr: up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Network connectivity issue"
+      description: "{{ $labels.instance }} is unreachable"
+
+  # Container restart frequency
+  - alert: FrequentContainerRestart
+    expr: rate(container_start_time_seconds[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Frequent container restarts"
+      description: "Container {{ $labels.container_label_com_docker_compose_service }} is restarting frequently"

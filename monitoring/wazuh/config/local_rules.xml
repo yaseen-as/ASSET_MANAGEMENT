@@ -1,0 +1,199 @@
+<!-- Asset Management System - Custom Security Rules -->
+<!-- Local rules for Asset Management application monitoring -->
+
+<group name="asset_management,authentication,">
+  <!-- Failed login attempts -->
+  <rule id="100001" level="5">
+    <if_sid>5716</if_sid>
+    <srcip>!192.168.0.0/16</srcip>
+    <description>Authentication failed from external IP</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <!-- Multiple failed login attempts -->
+  <rule id="100002" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100001</if_matched_sid>
+    <same_source_ip />
+    <description>Multiple authentication failures from same source IP</description>
+    <group>authentication_failures,pci_dss_11.4,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <!-- Brute force attack -->
+  <rule id="100003" level="12" frequency="10" timeframe="120">
+    <if_matched_sid>100001</if_matched_sid>
+    <same_source_ip />
+    <description>Possible brute force attack - multiple failures from same IP</description>
+    <group>attack,authentication_failures,pci_dss_11.4,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+</group>
+
+<group name="asset_management,web,">
+  <!-- SQL Injection attempts -->
+  <rule id="100010" level="12">
+    <if_sid>31103</if_sid>
+    <regex>union.*select|select.*from|insert.*into|delete.*from|drop.*table|exec.*\(|script.*>|<.*script</regex>
+    <description>Possible SQL injection or XSS attempt</description>
+    <group>attack,sql_injection,web_attack,pci_dss_6.5.1,</group>
+  </rule>
+
+  <!-- API abuse -->
+  <rule id="100011" level="8" frequency="50" timeframe="60">
+    <if_sid>31101</if_sid>
+    <url>/api/</url>
+    <same_source_ip />
+    <description>High API request rate from single IP - possible API abuse</description>
+    <group>attack,web_attack,</group>
+  </rule>
+
+  <!-- Unauthorized API access -->
+  <rule id="100012" level="10">
+    <if_sid>31101</if_sid>
+    <status>401|403</status>
+    <url>/api/</url>
+    <description>Unauthorized API access attempt</description>
+    <group>access_denied,web_attack,pci_dss_10.2.4,</group>
+  </rule>
+
+  <!-- Admin panel access -->
+  <rule id="100013" level="8">
+    <if_sid>31101</if_sid>
+    <url>/admin|/dashboard|/management</url>
+    <srcip>!192.168.0.0/16</srcip>
+    <description>External access to admin interface</description>
+    <group>access_control,web_attack,</group>
+  </rule>
+</group>
+
+<group name="asset_management,application,">
+  <!-- Application errors -->
+  <rule id="100020" level="4">
+    <decoded_as>json</decoded_as>
+    <field name="level">error</field>
+    <description>Application error detected</description>
+    <group>application_error,</group>
+  </rule>
+
+  <!-- Database connection errors -->
+  <rule id="100021" level="8">
+    <if_sid>100020</if_sid>
+    <field name="message">database.*connection|connection.*database|ECONNREFUSED</field>
+    <description>Database connection error</description>
+    <group>database_error,service_availability,</group>
+  </rule>
+
+  <!-- Privilege escalation attempts -->
+  <rule id="100022" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="message">privilege.*escalation|unauthorized.*access|admin.*bypass</field>
+    <description>Possible privilege escalation attempt</description>
+    <group>attack,privilege_escalation,pci_dss_10.2.2,</group>
+  </rule>
+
+  <!-- Suspicious portfolio operations -->
+  <rule id="100023" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="service">portfolio-service</field>
+    <field name="message">large.*transaction|suspicious.*trade|unusual.*volume</field>
+    <description>Suspicious portfolio operation detected</description>
+    <group>financial_fraud,suspicious_activity,</group>
+  </rule>
+
+  <!-- Market data manipulation -->
+  <rule id="100024" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="service">market-service</field>
+    <field name="message">price.*manipulation|data.*tampering|invalid.*market.*data</field>
+    <description>Possible market data manipulation attempt</description>
+    <group>financial_fraud,data_integrity,</group>
+  </rule>
+</group>
+
+<group name="asset_management,docker,">
+  <!-- Container security events -->
+  <rule id="100030" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="container">asset-management</field>
+    <field name="message">privilege.*container|root.*access|escape.*attempt</field>
+    <description>Container security violation</description>
+    <group>container_security,docker_attack,</group>
+  </rule>
+
+  <!-- Image vulnerability -->
+  <rule id="100031" level="6">
+    <decoded_as>json</decoded_as>
+    <field name="vulnerability">critical|high</field>
+    <description>Critical or high vulnerability detected in container image</description>
+    <group>vulnerability,container_security,</group>
+  </rule>
+</group>
+
+<group name="asset_management,network,">
+  <!-- Suspicious network connections -->
+  <rule id="100040" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="connection">outbound</field>
+    <field name="destination">tor.*|proxy.*|vpn.*|suspicious.*</field>
+    <description>Suspicious outbound network connection</description>
+    <group>network_anomaly,data_exfiltration,</group>
+  </rule>
+
+  <!-- Port scanning detection -->
+  <rule id="100041" level="8" frequency="10" timeframe="60">
+    <if_sid>31101</if_sid>
+    <status>404</status>
+    <same_source_ip />
+    <description>Possible port scanning - multiple 404 errors from same IP</description>
+    <group>reconnaissance,network_attack,</group>
+  </rule>
+
+  <!-- DDoS detection -->
+  <rule id="100042" level="10" frequency="100" timeframe="60">
+    <if_sid>31101</if_sid>
+    <same_source_ip />
+    <description>Possible DDoS attack - high request rate from single source</description>
+    <group>attack,ddos,service_availability,</group>
+  </rule>
+</group>
+
+<group name="asset_management,compliance,">
+  <!-- PCI DSS compliance violations -->
+  <rule id="100050" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="card_data">exposed|unencrypted|plaintext</field>
+    <description>Possible PCI DSS violation - sensitive card data exposure</description>
+    <group>pci_dss_violation,data_leak,compliance,</group>
+  </rule>
+
+  <!-- GDPR compliance violations -->
+  <rule id="100051" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="personal_data">exposed|leaked|unauthorized.*access</field>
+    <description>Possible GDPR violation - personal data exposure</description>
+    <group>gdpr_violation,privacy_breach,compliance,</group>
+  </rule>
+
+  <!-- Audit trail tampering -->
+  <rule id="100052" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="audit">deleted|modified|corrupted</field>
+    <description>Audit trail tampering detected</description>
+    <group>audit_tampering,compliance,pci_dss_10.5,</group>
+  </rule>
+</group>
+
+<!-- Custom active response for Asset Management -->
+<group name="asset_management,active_response,">
+  <!-- Automatic IP blocking for brute force -->
+  <rule id="100060" level="0">
+    <if_sid>100003</if_sid>
+    <description>Automatic response: blocking IP for brute force attack</description>
+    <group>active_response,</group>
+  </rule>
+
+  <!-- Account lockout for multiple failures -->
+  <rule id="100061" level="0">
+    <if_sid>100002</if_sid>
+    <description>Automatic response: account lockout for multiple failures</description>
+    <group>active_response,</group>
+  </rule>
+</group>

@@ -1,21 +1,26 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    cluster: 'asset-management-prod'
+    environment: 'production'
 
 rule_files:
   - "rules/*.yml"
 
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets:
-#           - alertmanager:9093
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
 
 scrape_configs:
   # Prometheus itself
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
 
   # Auth Service
   - job_name: 'auth-service'
@@ -23,6 +28,15 @@ scrape_configs:
       - targets: ['auth-service:3001']
     metrics_path: '/metrics'
     scrape_interval: 10s
+    scrape_timeout: 10s
+
+  # Auth Service Development
+  - job_name: 'auth-service-dev'
+    static_configs:
+      - targets: ['auth-service-dev:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 10s
 
   # Portfolio Service  
   - job_name: 'portfolio-service'
@@ -30,6 +44,15 @@ scrape_configs:
       - targets: ['portfolio-service:3002']
     metrics_path: '/metrics'
     scrape_interval: 10s
+    scrape_timeout: 10s
+
+  # Portfolio Service Development
+  - job_name: 'portfolio-service-dev'
+    static_configs:
+      - targets: ['portfolio-service-dev:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 10s
 
   # Market Data Service
   - job_name: 'market-service'
@@ -37,19 +60,70 @@ scrape_configs:
       - targets: ['market-service:3003']
     metrics_path: '/metrics'
     scrape_interval: 10s
+    scrape_timeout: 10s
+
+  # Market Data Service Development
+  - job_name: 'market-service-dev'
+    static_configs:
+      - targets: ['market-service-dev:3003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 10s
 
   # Node Exporter for system metrics
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    scrape_timeout: 10s
 
   # Postgres Exporter
   - job_name: 'postgres-exporter'
     static_configs:
       - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+    scrape_timeout: 10s
 
   # Nginx metrics
   - job_name: 'nginx'
     static_configs:
-      - targets: ['nginx:80']
+      - targets: ['nginx:80', 'nginx-dev:80']
     metrics_path: '/nginx_status'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Kafka JMX metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9101']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Wazuh Manager metrics (if exposed)
+  - job_name: 'wazuh-manager'
+    static_configs:
+      - targets: ['wazuh-manager:55000']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+
+  # Alertmanager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    scrape_interval: 30s
+
+  # Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
