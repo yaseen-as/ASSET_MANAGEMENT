@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #logs { white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Connection Test</h1>
+    
+    <div class="info">
+        <h3>Test Configuration</h3>
+        <p><strong>Frontend URL:</strong> http://localhost:8080</p>
+        <p><strong>Expected API Base:</strong> http://localhost:8080</p>
+    </div>
+
+    <div>
+        <button onclick="testAuthEndpoint()">Test Auth Endpoint</button>
+        <button onclick="testPortfolioEndpoint()">Test Portfolio Endpoint</button>
+        <button onclick="testMarketEndpoint()">Test Market Endpoint</button>
+        <button onclick="testSignup()">Test User Signup</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div id="results"></div>
+    <div id="logs"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logsDiv.textContent += `[${timestamp}] ${message}\n`;
+        }
+        
+        function addResult(type, message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').textContent = '';
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testAuthEndpoint() {
+            try {
+                log('Testing Auth endpoint...');
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'test@invalid.com',
+                        password: 'invalid'
+                    })
+                });
+                
+                const data = await response.text();
+                log(`Auth Response: ${response.status} - ${data.substring(0, 200)}`);
+                
+                if (response.status === 400 || response.status === 401) {
+                    addResult('success', '✅ Auth endpoint accessible (returned expected error)');
+                } else {
+                    addResult('error', `❌ Auth endpoint unexpected response: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Auth Error: ${error.message}`);
+                addResult('error', `❌ Auth endpoint failed: ${error.message}`);
+            }
+        }
+        
+        async function testPortfolioEndpoint() {
+            try {
+                log('Testing Portfolio endpoint...');
+                const response = await fetch(`${API_BASE}/portfolio/`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.text();
+                log(`Portfolio Response: ${response.status} - ${data.substring(0, 200)}`);
+                
+                if (response.status === 401) {
+                    addResult('success', '✅ Portfolio endpoint accessible (requires auth as expected)');
+                } else {
+                    addResult('info', `ℹ️ Portfolio endpoint response: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Portfolio Error: ${error.message}`);
+                addResult('error', `❌ Portfolio endpoint failed: ${error.message}`);
+            }
+        }
+        
+        async function testMarketEndpoint() {
+            try {
+                log('Testing Market endpoint...');
+                const response = await fetch(`${API_BASE}/market/price/RELIANCE`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.text();
+                log(`Market Response: ${response.status} - ${data.substring(0, 200)}`);
+                
+                if (response.status === 200 || response.status === 401) {
+                    addResult('success', '✅ Market endpoint accessible');
+                } else {
+                    addResult('info', `ℹ️ Market endpoint response: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Market Error: ${error.message}`);
+                addResult('error', `❌ Market endpoint failed: ${error.message}`);
+            }
+        }
+        
+        async function testSignup() {
+            try {
+                log('Testing User Signup...');
+                const testUser = {
+                    email: `test_${Date.now()}@example.com`,
+                    password: 'TestPass123',
+                    name: 'Test User'
+                };
+                
+                const response = await fetch(`${API_BASE}/auth/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testUser)
+                });
+                
+                const data = await response.text();
+                log(`Signup Response: ${response.status} - ${data.substring(0, 200)}`);
+                
+                if (response.status === 201) {
+                    addResult('success', '✅ User signup successful');
+                } else if (response.status === 409) {
+                    addResult('success', '✅ Signup endpoint working (user exists)');
+                } else {
+                    addResult('info', `ℹ️ Signup response: ${response.status}`);
+                }
+            } catch (error) {
+                log(`Signup Error: ${error.message}`);
+                addResult('error', `❌ Signup failed: ${error.message}`);
+            }
+        }
+        
+        // Run initial test on page load
+        window.onload = function() {
+            log('Frontend API Test Page Loaded');
+            log(`Testing API connectivity to: ${API_BASE}`);
+        };
+    </script>
+</body>
+</html>

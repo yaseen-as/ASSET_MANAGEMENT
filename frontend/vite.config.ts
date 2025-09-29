@@ -13,11 +13,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    proxy: {
-      '/auth': 'http://localhost:3001',
-      '/portfolio': 'http://localhost:3002',
-      '/market': 'http://localhost:3003',
-    },
+    // Remove proxy since we're using nginx
   },
   preview: {
     port: 3000,

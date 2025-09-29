@@ -314,7 +314,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: frontend-dev
     environment:
-      VITE_REACT_APP_API_URL: http://nginx-dev
+      VITE_REACT_APP_API_URL: http://localhost:8080
       VITE_NODE_ENV: development
     ports:
       - "3000:3000"

@@ -11,6 +11,7 @@ import {
   Play,
   Pause
 } from 'lucide-react';
+import { alertToasts } from '../lib/toast';
 
 interface Alert {
   id: string;
@@ -99,13 +100,18 @@ const AlertsPage: React.FC = () => {
       };
       
       setAlerts([...alerts, alert]);
+      alertToasts.alertCreated(newAlert.symbol.toUpperCase());
       setNewAlert({ symbol: '', type: 'price_above', value: '' });
       setShowAddAlert(false);
     }
   };
 
   const handleDeleteAlert = (id: string) => {
+    const alertToDelete = alerts.find(alert => alert.id === id);
     setAlerts(alerts.filter(alert => alert.id !== id));
+    if (alertToDelete) {
+      alertToasts.alertDeleted(alertToDelete.symbol);
+    }
   };
 
   const handleToggleAlert = (id: string) => {

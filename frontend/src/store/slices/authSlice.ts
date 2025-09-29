@@ -12,48 +12,81 @@ export interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
+  isInitialized: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('token'),
+  token: null,
   isLoading: false,
   error: null,
+  isAuthenticated: false,
+  isInitialized: false,
 };
 
-// Initialize user from localStorage if token exists
-if (typeof window !== 'undefined') {
-  const storedToken = localStorage.getItem('token');
-  const storedUser = localStorage.getItem('user');
-  if (storedToken && storedUser) {
+// Token validation async thunk
+export const initializeAuth = createAsyncThunk(
+  'auth/initialize',
+  async (_, { rejectWithValue }) => {
     try {
-      initialState.token = storedToken;
-      initialState.user = JSON.parse(storedUser);
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (storedToken && storedUser) {
+        // Validate token by making a test API call
+        const user = JSON.parse(storedUser);
+        // You can add token validation here if needed
+        return { token: storedToken, user };
+      }
+      
+      return null;
     } catch (error) {
-      // If parsing fails, clear invalid data
+      // Clear invalid data
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      return rejectWithValue('Invalid stored credentials');
     }
   }
-}
+);
 
 export const loginAsync = createAsyncThunk(
   'auth/login',
-  async ({ email, password }: { email: string; password: string }) => {
-    const response = await authAPI.login(email, password);
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    return response;
+  async ({ email, password }: { email: string; password: string }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.login(email, password);
+      
+      if (response.success && response.token) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        return response;
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'Login failed';
+      return rejectWithValue(message);
+    }
   }
 );
 
 export const signupAsync = createAsyncThunk(
   'auth/signup',
-  async ({ email, password, name }: { email: string; password: string; name: string }) => {
-    const response = await authAPI.signup(email, password, name);
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    return response;
+  async ({ email, password, name }: { email: string; password: string; name: string }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.signup(email, password, name);
+      
+      if (response.success && response.token) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        return response;
+      } else {
+        throw new Error(response.message || 'Signup failed');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'Signup failed';
+      return rejectWithValue(message);
+    }
   }
 );
 
@@ -64,15 +97,44 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.isAuthenticated = false;
+      state.error = null;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     },
     clearError: (state) => {
       state.error = null;
     },
+    setAuthenticatedFromStorage: (state, action) => {
+      state.user = action.payload.user;
+      state.token = action.payload.token;
+      state.isAuthenticated = true;
+      state.isInitialized = true;
+    },
   },
   extraReducers: (builder) => {
     builder
+      // Initialize auth
+      .addCase(initializeAuth.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(initializeAuth.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        if (action.payload) {
+          state.user = action.payload.user;
+          state.token = action.payload.token;
+          state.isAuthenticated = true;
+        } else {
+          state.isAuthenticated = false;
+        }
+      })
+      .addCase(initializeAuth.rejected, (state) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        state.isAuthenticated = false;
+      })
+      // Login
       .addCase(loginAsync.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -81,11 +143,15 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.isAuthenticated = true;
+        state.error = null;
       })
       .addCase(loginAsync.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Login failed';
+        state.error = action.payload as string || 'Login failed';
+        state.isAuthenticated = false;
       })
+      // Signup
       .addCase(signupAsync.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -94,13 +160,16 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        state.isAuthenticated = true;
+        state.error = null;
       })
       .addCase(signupAsync.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Signup failed';
+        state.error = action.payload as string || 'Signup failed';
+        state.isAuthenticated = false;
       });
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { logout, clearError, setAuthenticatedFromStorage } = authSlice.actions;
 export default authSlice.reducer;

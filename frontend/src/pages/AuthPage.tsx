@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, User, Mail, Lock, ArrowRight } from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import { validationToasts, authToasts, showToast } from '../lib/toast';
 
 interface FormData {
   email: string;
@@ -33,14 +33,16 @@ const AuthPage: React.FC = () => {
 
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error, token, user } = useSelector((state: RootState) => state.auth);
+  const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
+  // Redirect if already authenticated
   useEffect(() => {
-    if (token && user) {
-      console.log('Token found, redirecting to dashboard...');
-      navigate('/', { replace: true });
+    if (isAuthenticated) {
+      console.log('User is authenticated, redirecting to dashboard...');
+      const returnUrl = (location.state as any)?.from?.pathname || '/';
+      navigate(returnUrl, { replace: true });
     }
-  }, [token, user, navigate]);
+  }, [isAuthenticated, navigate, location.state]);
 
   useEffect(() => {
     setIsLogin(location.pathname === '/login' || location.pathname === '/auth');
@@ -52,18 +54,14 @@ const AuthPage: React.FC = () => {
 
   // Debug effect
   useEffect(() => {
-    console.log('Auth state changed:', { token: !!token, user: !!user, isLoading });
-  }, [token, user, isLoading]);
+    console.log('Auth state changed:', { isAuthenticated, isLoading });
+  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (error) {
       console.log('Auth error:', error);
-      toast.error(error, {
-        description: 'Please check your credentials and try again.',
-        duration: 4000,
-        position: 'top-right',
-        richColors: true,
-      });
+      // Simple error notification
+      console.error('Authentication error:', error);
     }
   }, [error]);
 
@@ -77,21 +75,21 @@ const AuthPage: React.FC = () => {
 
   const validateForm = () => {
     if (!formData.email || !formData.password) {
-      toast.error('Please fill in all required fields');
+      validationToasts.requiredFields();
       return false;
     }
 
     if (!isLogin) {
       if (!formData.fullName) {
-        toast.error('Please enter your full name');
+        validationToasts.fullNameRequired();
         return false;
       }
       if (formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match');
+        validationToasts.passwordMismatch();
         return false;
       }
       if (formData.password.length < 6) {
-        toast.error('Password must be at least 6 characters long');
+        validationToasts.passwordTooShort();
         return false;
       }
     }
@@ -114,13 +112,7 @@ const AuthPage: React.FC = () => {
         })).unwrap();
         
         console.log('Login successful, result:', result);
-        
-        toast.success('Login successful!', {
-          description: 'Welcome back!',
-          duration: 2000,
-          position: 'top-right',
-          richColors: true,
-        });
+        authToasts.loginSuccess();
         
       } else {
         const result = await dispatch(signupAsync({ 
@@ -130,24 +122,12 @@ const AuthPage: React.FC = () => {
         })).unwrap();
         
         console.log('Signup successful, result:', result);
-        
-        toast.success('Account created successfully!', {
-          description: 'Welcome to Asset Manager!',
-          duration: 2000,
-          position: 'top-right',
-          richColors: true,
-        });
-        
+        authToasts.signupSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Auth error:', error);
-      // For testing purposes, show a more detailed error
-      toast.error(`Authentication failed: ${error}`, {
-        description: 'Please check the console for more details',
-        duration: 5000,
-        position: 'top-right',
-        richColors: true,
-      });
+      const errorMessage = error || 'Authentication failed';
+      authToasts.authError(errorMessage + ' - Please check your credentials and try again.');
     }
   };
 
@@ -163,16 +143,11 @@ const AuthPage: React.FC = () => {
   };
 
   const handleSocialLogin = (provider: string) => {
-    toast.info(`${provider} sign-in is not implemented yet.`, {
-      position: 'top-right',
-      duration: 3000,
-      richColors: true,
-    });
+    showToast.info('Coming soon', `${provider} sign-in will be available soon.`);
   };
 
   return (
     <>
-      <Toaster />
       <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0">
@@ -311,11 +286,7 @@ const AuthPage: React.FC = () => {
                   <button
                     type="button"
                     className="text-sm text-white hover:text-gray-300 transition-colors underline underline-offset-4"
-                    onClick={() => toast.info('Password recovery is not implemented yet.', {
-                      position: 'top-right',
-                      duration: 3000,
-                      richColors: true,
-                    })}
+                    onClick={() => showToast.info('Password recovery', 'Password recovery will be available soon.')}
                   >
                     Forgot password?
                   </button>

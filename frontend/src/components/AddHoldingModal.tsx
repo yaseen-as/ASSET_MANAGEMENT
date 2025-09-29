@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { X } from 'lucide-react';
+import { portfolioToasts, validationToasts } from '../lib/toast';
 
 interface AddHoldingModalProps {
   isOpen: boolean;
@@ -33,6 +34,22 @@ const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ isOpen, onClose }) =>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation
+    if (!formData.symbol || !formData.quantity || !formData.avgPrice) {
+      validationToasts.requiredFields();
+      return;
+    }
+
+    if (parseInt(formData.quantity) <= 0) {
+      validationToasts.requiredFields();
+      return;
+    }
+
+    if (parseFloat(formData.avgPrice) <= 0) {
+      validationToasts.requiredFields();
+      return;
+    }
+    
     const holdingData = {
       symbol: formData.symbol.toUpperCase(),
       quantity: parseInt(formData.quantity),
@@ -42,6 +59,7 @@ const AddHoldingModal: React.FC<AddHoldingModalProps> = ({ isOpen, onClose }) =>
     };
 
     dispatch(addHolding(holdingData));
+    portfolioToasts.holdingAdded(formData.symbol.toUpperCase());
     onClose();
     
     // Reset form
