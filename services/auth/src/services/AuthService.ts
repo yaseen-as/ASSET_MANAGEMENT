@@ -23,7 +23,7 @@ export interface LoginResult {
 }
 
 export class AuthService {
-  private userRepository: UserRepository;
+  public userRepository: UserRepository;
   private refreshTokenRepository: RefreshTokenRepository;
 
   constructor() {

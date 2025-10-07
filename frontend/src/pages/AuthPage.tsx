@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { RootState, AppDispatch } from '../store/store';
-import { loginAsync, signupAsync, clearError } from '../store/slices/authSlice';
+import { useLoginMutation, useSignupMutation } from '../hooks/useAuthMutation';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,14 +30,14 @@ const AuthPage: React.FC = () => {
     fullName: ''
   });
 
-  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isLoading, error, setError } = useAuth();
+  const loginMutation = useLoginMutation();
+  const signupMutation = useSignupMutation();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('User is authenticated, redirecting to dashboard...');
       const returnUrl = (location.state as any)?.from?.pathname || '/';
       navigate(returnUrl, { replace: true });
     }
@@ -46,24 +45,8 @@ const AuthPage: React.FC = () => {
 
   useEffect(() => {
     setIsLogin(location.pathname === '/login' || location.pathname === '/auth');
-  }, [location]);
-
-  useEffect(() => {
-    dispatch(clearError());
-  }, [dispatch]);
-
-  // Debug effect
-  useEffect(() => {
-    console.log('Auth state changed:', { isAuthenticated, isLoading });
-  }, [isAuthenticated, isLoading]);
-
-  useEffect(() => {
-    if (error) {
-      console.log('Auth error:', error);
-      // Simple error notification
-      console.error('Authentication error:', error);
-    }
-  }, [error]);
+    setError(null);
+  }, [location, setError]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -99,35 +82,23 @@ const AuthPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      if (isLogin) {
-        const result = await dispatch(loginAsync({ 
-          email: formData.email, 
-          password: formData.password 
-        })).unwrap();
-        
-        console.log('Login successful, result:', result);
-        authToasts.loginSuccess();
-        
-      } else {
-        const result = await dispatch(signupAsync({ 
-          email: formData.email, 
-          password: formData.password,
-          name: formData.fullName || ''
-        })).unwrap();
-        
-        console.log('Signup successful, result:', result);
-        authToasts.signupSuccess();
-      }
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      const errorMessage = error || 'Authentication failed';
-      authToasts.authError(errorMessage + ' - Please check your credentials and try again.');
+    if (!validateForm()) return;
+    if (isLogin) {
+      loginMutation.mutate(
+        { email: formData.email, password: formData.password },
+        {
+          onSuccess: () => authToasts.loginSuccess(),
+          onError: (err: any) => authToasts.authError(err?.message || 'Login failed'),
+        }
+      );
+    } else {
+      signupMutation.mutate(
+        { email: formData.email, password: formData.password, name: formData.fullName || '' },
+        {
+          onSuccess: () => authToasts.signupSuccess(),
+          onError: (err: any) => authToasts.authError(err?.message || 'Signup failed'),
+        }
+      );
     }
   };
 
@@ -139,7 +110,7 @@ const AuthPage: React.FC = () => {
       confirmPassword: '',
       fullName: ''
     });
-    dispatch(clearError());
+    setError(null);
   };
 
   const handleSocialLogin = (provider: string) => {
@@ -295,10 +266,10 @@ const AuthPage: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={loginMutation.isPending || signupMutation.isPending}
                 className="w-full bg-white text-black hover:bg-gray-200 h-12 font-semibold text-base transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg group disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
+                {(loginMutation.isPending || signupMutation.isPending) ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
                     {isLogin ? 'Signing in...' : 'Creating account...'}

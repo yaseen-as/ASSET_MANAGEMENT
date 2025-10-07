@@ -37,17 +37,13 @@ const api = axios.create({
     'Accept': 'application/json',
   },
   timeout: 15000,
-  withCredentials: false, // Set to false for CORS simplicity initially
+  withCredentials: true, // Enable cookie-based auth
 });
 
 // Request interceptor to add auth token and debug logging
+// No token management needed for cookie-based auth
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
     // Debug logging
     if (import.meta.env.VITE_DEBUG_API === 'true') {
       console.log(`🔄 [API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
@@ -56,7 +52,6 @@ api.interceptors.request.use(
         console.log('📦 Data:', config.data);
       }
     }
-    
     return config;
   },
   (error) => {
@@ -76,105 +71,42 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    
     console.error(`❌ [API Error] ${error.response?.status} ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}`);
     console.error('📄 Error Details:', {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message
     });
-    
-    // Handle 401 Unauthorized (Token expired)
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-          console.log('🔄 [Token Refresh] Attempting token refresh...');
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          });
-          
-          const { token } = response.data;
-          localStorage.setItem('token', token);
-          
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          console.log('✅ [Token Refresh] Token refreshed, retrying request');
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        console.error('❌ [Token Refresh] Failed:', refreshError);
-      }
-      
-      // Clear auth data and redirect to login
-      console.log('🚪 [Auth] Clearing authentication data and redirecting to login');
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      
-      // Only redirect if we're not already on the auth page
-      if (!window.location.pathname.includes('/auth')) {
-        window.location.href = '/auth';
-      }
-    }
-    
     return Promise.reject(error);
   }
 );
 
-export const authAPI = {
-  login: async (email: string, password: string) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      return response.data;
-    } catch (error: any) {
-      console.error('Login API error:', error);
-      throw error;
-    }
-  },
-  
-  signup: async (email: string, password: string, name: string) => {
-    try {
-      const response = await api.post('/auth/signup', { email, password, name });
-      return response.data;
-    } catch (error: any) {
-      console.error('Signup API error:', error);
-      throw error;
-    }
-  },
-  
-  logout: async () => {
-    try {
-      const response = await api.post('/auth/logout');
-      return response.data;
-    } catch (error: any) {
-      console.error('Logout API error:', error);
-      throw error;
-    }
-  },
-  
-  refresh: async (refreshToken: string) => {
-    try {
-      const response = await api.post('/auth/refresh', { refreshToken });
-      return response.data;
-    } catch (error: any) {
-      console.error('Refresh API error:', error);
-      throw error;
-    }
-  },
-  
-  validateToken: async () => {
-    try {
-      const response = await api.get('/auth/validate');
-      return response.data;
-    } catch (error: any) {
-      console.error('Token validation error:', error);
-      throw error;
-    }
-  },
-};
+
+// Cookie-based auth API functions for TanStack Query
+export async function loginAPI(email: string, password: string) {
+  const response = await api.post('/auth/login', { email, password });
+  return response.data;
+}
+
+export async function signupAPI(email: string, password: string, name: string) {
+  const response = await api.post('/auth/signup', { email, password, name });
+  return response.data;
+}
+
+export async function logoutAPI() {
+  const response = await api.post('/auth/logout');
+  return response.data;
+}
+
+export async function refreshAPI() {
+  const response = await api.post('/auth/refresh');
+  return response.data;
+}
+
+export async function getMeAPI() {
+  const response = await api.get('/auth/me');
+  return response.data;
+}
 
 export const portfolioAPI = {
   getPortfolio: async () => {
