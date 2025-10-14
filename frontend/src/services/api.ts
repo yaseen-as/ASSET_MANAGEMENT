@@ -3,18 +3,17 @@ import axios from 'axios';
 // Get API base URL from environment
 const API_BASE_URL = import.meta.env.VITE_REACT_APP_API_URL as string;
 
-// Debug environment variables
-console.log('🔍 Environment Debug:', {
-  'import.meta.env.VITE_REACT_APP_API_URL': import.meta.env.VITE_REACT_APP_API_URL,
-  'process.env.VITE_REACT_APP_API_URL': (window as any).process?.env?.VITE_REACT_APP_API_URL,
-  'All Vite Env Vars': Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')),
-  'Current API_BASE_URL': API_BASE_URL
-});
+// Debug environment variables (only in development)
+if (import.meta.env.DEV) {
+  console.log('🔍 Environment Debug:', {
+    'VITE_REACT_APP_API_URL': import.meta.env.VITE_REACT_APP_API_URL,
+    'Current API_BASE_URL': API_BASE_URL
+  });
+}
 
 // Validate API base URL
 if (!API_BASE_URL) {
   console.error('❌ VITE_REACT_APP_API_URL is not defined in environment variables');
-  console.error('📋 Available environment variables:', import.meta.env);
   throw new Error('API Base URL is required');
 }
 
@@ -23,11 +22,12 @@ if (API_BASE_URL.includes('nginx-dev') || API_BASE_URL.includes('localhost:80'))
   console.warn('⚠️ Potentially incorrect API URL detected:', API_BASE_URL);
 }
 
-console.log('🔧 API Configuration:', {
-  baseURL: API_BASE_URL,
-  environment: import.meta.env.MODE,
-  debug: import.meta.env.VITE_DEBUG_API
-});
+if (import.meta.env.DEV) {
+  console.log('🔧 API Configuration:', {
+    baseURL: API_BASE_URL,
+    environment: import.meta.env.MODE
+  });
+}
 
 // Create axios instance with proper configuration
 const api = axios.create({
@@ -44,8 +44,8 @@ const api = axios.create({
 // No token management needed for cookie-based auth
 api.interceptors.request.use(
   (config) => {
-    // Debug logging
-    if (import.meta.env.VITE_DEBUG_API === 'true') {
+    // Debug logging in development only
+    if (import.meta.env.DEV) {
       console.log(`🔄 [API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
       console.log('📋 Headers:', config.headers);
       if (config.data) {
@@ -63,7 +63,7 @@ api.interceptors.request.use(
 // Response interceptor for error handling and token refresh
 api.interceptors.response.use(
   (response) => {
-    if (import.meta.env.VITE_DEBUG_API === 'true') {
+    if (import.meta.env.DEV) {
       console.log(`✅ [API Response] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
       console.log('📄 Response:', response.data);
     }

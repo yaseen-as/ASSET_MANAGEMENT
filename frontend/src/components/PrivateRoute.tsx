@@ -1,26 +1,17 @@
-import React, { useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { RootState, AppDispatch } from '../store/store';
-import { initializeAuth } from '../store/slices/authSlice';
+import { useAuth } from '../context/AuthContext';
 
 interface PrivateRouteProps {
   children: React.ReactNode;
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const dispatch = useDispatch<AppDispatch>();
   const location = useLocation();
-  const { isAuthenticated, isInitialized, isLoading } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isLoading } = useAuth();
   
-  useEffect(() => {
-    if (!isInitialized) {
-      dispatch(initializeAuth());
-    }
-  }, [dispatch, isInitialized]);
-
   // Show loading spinner while initializing auth state
-  if (!isInitialized || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">

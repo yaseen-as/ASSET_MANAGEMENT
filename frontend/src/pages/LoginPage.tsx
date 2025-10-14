@@ -1,31 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { RootState, AppDispatch } from '../store/store';
-import { loginAsync, clearError } from '../store/slices/authSlice';
+import { useLoginMutation } from '../hooks/useAuthMutation';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error, token } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isLoading, error, setError } = useAuth();
+  const loginMutation = useLoginMutation();
 
   useEffect(() => {
-    if (token) {
+    if (isAuthenticated) {
       navigate('/');
     }
-  }, [token, navigate]);
-
-  useEffect(() => {
-    dispatch(clearError());
-  }, [dispatch]);
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginAsync({ email, password }));
+    loginMutation.mutate({ email, password });
   };
 
   return (
