@@ -1,69 +1,98 @@
 #!/bin/bash
 
-# Quick setup script for new developers
+# Simple Asset Management System Setup
+# Microservices with TanStack Query Frontend
 
 set -e
 
-# Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+echo "🚀 Asset Management System - Quick Setup"
+echo "========================================"
+echo ""
 
-print_status() {
-    echo -e "${GREEN}[SETUP]${NC} $1"
-}
+# Check basic requirements
+echo "Checking requirements..."
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_status "Setting up Asset Management System development environment..."
-
-# Check if we're in the right directory
-if [ ! -f "docker-compose.yml" ]; then
-    echo "Error: Please run this script from the project root directory"
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js not found. Please install Node.js 18+"
     exit 1
 fi
 
-# Install dependencies
-print_status "Installing dependencies..."
-./scripts/manage.sh install
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker not found. Please install Docker"
+    exit 1
+fi
 
-# Copy example environment file
+if ! command -v docker-compose &> /dev/null; then
+    echo "❌ Docker Compose not found. Please install Docker Compose"
+    exit 1
+fi
+
+echo "✅ Requirements check passed"
+echo ""
+
+# Create basic .env if missing
 if [ ! -f ".env" ]; then
-    print_status "Creating .env file from .env.dev..."
-    cp .env.dev .env
-    print_warning "Please review and update the .env file with your configuration!"
+    echo "Creating basic .env file..."
+    cat > .env << 'ENVEOF'
+# Basic Configuration
+JWT_SECRET=dev-jwt-secret-change-in-production
+JWT_REFRESH_SECRET=dev-refresh-secret-change-in-production
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:3000
+ANGEL_ONE_API_KEY=your-angel-one-api-key
+ANGEL_ONE_CLIENT_ID=your-angel-one-client-id
+ENVEOF
+    echo "✅ .env file created"
 fi
 
-# Create necessary directories
-print_status "Creating required directories..."
-mkdir -p services/auth/logs
-mkdir -p services/portfolio/logs
-mkdir -p services/market-data/logs
-mkdir -p nginx/logs
-mkdir -p nginx/ssl
-mkdir -p e2e/test-results
-mkdir -p e2e/reports
+# Install dependencies
+echo "Installing dependencies..."
 
-# Generate SSL certificates for development
-print_status "Generating development SSL certificates..."
-if [ ! -f "nginx/ssl/server.crt" ]; then
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout nginx/ssl/server.key \
-        -out nginx/ssl/server.crt \
-        -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=localhost"
+# Frontend
+if [ -f "frontend/package.json" ]; then
+    echo "Installing frontend dependencies..."
+    cd frontend && npm install && cd ..
+    echo "✅ Frontend dependencies installed"
 fi
 
-print_status "Setup completed!"
-print_status ""
-print_status "Next steps:"
-print_status "1. Review and update the .env file"
-print_status "2. Start the development environment: ./scripts/manage.sh dev"
-print_status "3. Visit http://localhost to access the application"
-print_status ""
-print_status "Available commands:"
-print_status "  ./scripts/manage.sh dev      # Start development environment"
-print_status "  ./scripts/manage.sh test-all # Run all tests"
-print_status "  ./scripts/manage.sh logs     # View logs"
-print_status "  ./scripts/manage.sh stop     # Stop all services"
+# Auth service
+if [ -f "services/auth/package.json" ]; then
+    echo "Installing auth service dependencies..."
+    cd services/auth && npm install && cd ../..
+    echo "✅ Auth service dependencies installed"
+fi
+
+# Portfolio service
+if [ -f "services/portfolio/package.json" ]; then
+    echo "Installing portfolio service dependencies..."
+    cd services/portfolio && npm install && cd ../..
+    echo "✅ Portfolio service dependencies installed"
+fi
+
+# Market data service
+if [ -f "services/market-data/package.json" ]; then
+    echo "Installing market data service dependencies..."
+    cd services/market-data && npm install && cd ../..
+    echo "✅ Market data service dependencies installed"
+fi
+
+# E2E tests (optional)
+if [ -f "e2e/package.json" ]; then
+    echo "Installing E2E test dependencies..."
+    cd e2e && npm install && cd ..
+    echo "✅ E2E test dependencies installed"
+fi
+
+echo ""
+echo "🎉 Setup Complete!"
+echo ""
+echo "Next Steps:"
+echo "1. Update .env with your actual API credentials"
+echo "2. Start development: ./scripts/manage.sh dev"
+echo "3. Visit: http://localhost:3000"
+echo ""
+echo "Available commands:"
+echo "  ./scripts/manage.sh dev     # Start development"
+echo "  ./scripts/manage.sh stop    # Stop services"
+echo "  ./scripts/manage.sh status  # Check status"
+echo ""
