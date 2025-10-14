@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import { errorHandler } from './utils/errorHandler';
@@ -12,7 +13,11 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true // Enable credentials (cookies) to be sent
+}));
+app.use(cookieParser()); // Parse cookies
 app.use(express.json());
 
 // Routes
