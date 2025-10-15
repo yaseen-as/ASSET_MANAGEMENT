@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import marketRoutes from './routes/marketRoutes';
 import { errorHandler } from './utils/errorHandler';
 
@@ -12,17 +13,15 @@ const PORT = process.env.PORT || 3003;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins for development
+  credentials: true, // Enable cookies
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 // Routes
-app.use('/market', marketRoutes);
-app.use('/', marketRoutes); // Also support routes without /market prefix
-
-// Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', service: 'market-data-service' });
-});
+app.use('/', marketRoutes);
 
 // Error handling
 app.use(errorHandler);

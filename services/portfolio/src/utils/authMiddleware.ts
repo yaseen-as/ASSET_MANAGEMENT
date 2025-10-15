@@ -8,14 +8,19 @@ export interface AuthenticatedRequest extends Request {
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw ApiError.unauthorized('No authorization header provided');
+    // Try to get token from cookies first (cookie-based auth)
+    let token = req.cookies?.accessToken;
+    
+    // Fallback to Authorization header (for API clients)
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      }
     }
 
-    const token = authHeader.split(' ')[1];
     if (!token) {
-      throw ApiError.unauthorized('No token provided');
+      throw ApiError.unauthorized('Access token missing');
     }
 
     // Verify token

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import portfolioRoutes from './routes/portfolioRoutes';
 import { errorHandler } from './utils/errorHandler';
 import { authMiddleware } from './utils/authMiddleware';
@@ -13,8 +14,21 @@ const PORT = process.env.PORT || 3002;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins for development
+  credentials: true, // Enable cookies
+}));
+app.use(cookieParser());
 app.use(express.json());
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    service: 'portfolio-service',
+    status: 'OK',
+    endpoints: ['/', '/:id', '/sync', '/health']
+  });
+});
 
 // Health check (no auth required)
 app.get('/health', (req, res) => {
@@ -22,9 +36,7 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
-app.use('/portfolio', authMiddleware, portfolioRoutes);
-app.use('/', authMiddleware, portfolioRoutes); // Also support routes without /portfolio prefix
-
+app.use('/', authMiddleware, portfolioRoutes);
 
 // Error handling
 app.use(errorHandler);
