@@ -1,0 +1,449 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # MESSAGE BROKERS & EVENT STREAMING
+  # =============================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - event-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_DELETE_TOPIC_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - event-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - event-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    networks:
+      - event-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - event-network
+
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+  postgres-cluster:
+    image: postgres:15-alpine
+    container_name: postgres-cluster
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
+      POSTGRES_DB: asset_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - data-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.xml
+    environment:
+      CLICKHOUSE_DB: market_analytics
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-admin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-admin123}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - data-network
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - data-network
+
+  # =============================================================================
+  # AI/ML INFRASTRUCTURE
+  # =============================================================================
+  tensorflow-serving:
+    image: tensorflow/serving:2.14.0
+    container_name: tensorflow-serving
+    ports:
+      - "8501:8501"
+      - "8500:8500"
+    volumes:
+      - ./ml-models:/models
+    environment:
+      MODEL_NAME: portfolio_predictor
+      MODEL_BASE_PATH: /models
+    command: >
+      tensorflow_model_server
+      --rest_api_port=8501
+      --model_name=portfolio_predictor
+      --model_base_path=/models/portfolio_predictor
+      --allow_version_labels_for_unavailable_models
+    networks:
+      - ml-network
+
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow:/mlflow
+      - mlflow_data:/mlruns
+    working_dir: /mlflow
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary &&
+        mlflow server
+        --backend-store-uri postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/mlflow
+        --default-artifact-root /mlruns
+        --host 0.0.0.0
+        --port 5000
+      "
+    depends_on:
+      - postgres-cluster
+    networks:
+      - ml-network
+
+  # =============================================================================
+  # NEW MICROSERVICES ARCHITECTURE
+  # =============================================================================
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - kafka
+      - redis
+    volumes:
+      - ./services/api-gateway:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - api-network
+
+  auth-service-v2:
+    build:
+      context: ./services/auth-v2
+      dockerfile: Dockerfile.dev
+    container_name: auth-service-v2
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/auth_v2
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - postgres-cluster
+      - kafka
+      - redis
+    volumes:
+      - ./services/auth-v2:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - data-network
+
+  portfolio-service-v2:
+    build:
+      context: ./services/portfolio-v2
+      dockerfile: Dockerfile.dev
+    container_name: portfolio-service-v2
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/portfolio_v2
+      CLICKHOUSE_URL: http://clickhouse:8123
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres-cluster
+      - clickhouse
+      - kafka
+      - redis
+    volumes:
+      - ./services/portfolio-v2:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - data-network
+
+  market-data-service-v2:
+    build:
+      context: ./services/market-data-v2
+      dockerfile: Dockerfile.dev
+    container_name: market-data-service-v2
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/market_data_v2
+      CLICKHOUSE_URL: http://clickhouse:8123
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      ANGEL_ONE_API_KEY: ${ANGEL_ONE_API_KEY}
+      ANGEL_ONE_CLIENT_ID: ${ANGEL_ONE_CLIENT_ID}
+    depends_on:
+      - postgres-cluster
+      - clickhouse
+      - kafka
+      - redis
+    volumes:
+      - ./services/market-data-v2:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - data-network
+
+  ai-insights-service:
+    build:
+      context: ./services/ai-insights
+      dockerfile: Dockerfile.dev
+    container_name: ai-insights-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/ai_insights
+      CLICKHOUSE_URL: http://clickhouse:8123
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      TENSORFLOW_SERVING_URL: http://tensorflow-serving:8501
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - postgres-cluster
+      - clickhouse
+      - elasticsearch
+      - kafka
+      - redis
+      - tensorflow-serving
+      - mlflow
+    volumes:
+      - ./services/ai-insights:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - data-network
+      - ml-network
+
+  notification-service:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile.dev
+    container_name: notification-service
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres-cluster:5432/notifications
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+    depends_on:
+      - postgres-cluster
+      - kafka
+      - redis
+    volumes:
+      - ./services/notification:/app
+      - /app/node_modules
+    networks:
+      - event-network
+      - data-network
+
+  # =============================================================================
+  # FRONTEND V2
+  # =============================================================================
+  frontend-v2:
+    build:
+      context: ./frontend-v2
+      dockerfile: Dockerfile.dev
+    container_name: frontend-v2
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:3000
+      VITE_WS_URL: ws://localhost:3000
+      VITE_NODE_ENV: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend-v2:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - api-network
+
+  # =============================================================================
+  # MONITORING & OBSERVABILITY
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=200h'
+    networks:
+      - monitoring-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - monitoring-network
+
+volumes:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
+  redis_data:
+  postgres_data:
+  clickhouse_data:
+  elasticsearch_data:
+  mlflow_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  event-network:
+    driver: bridge
+  data-network:
+    driver: bridge
+  ml-network:
+    driver: bridge
+  api-network:
+    driver: bridge
+  monitoring-network:
+    driver: bridge
