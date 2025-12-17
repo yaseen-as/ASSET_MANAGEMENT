@@ -1,0 +1,320 @@
+---
+# Wazuh Manager StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh
+  namespace: wazuh
+  labels:
+    app: wazuh-manager
+spec:
+  type: ClusterIP
+  selector:
+    app: wazuh-manager
+  ports:
+    - name: registration
+      port: 1514
+      targetPort: 1514
+      protocol: TCP
+    - name: agents-events
+      port: 1515
+      targetPort: 1515
+      protocol: TCP
+    - name: api
+      port: 55000
+      targetPort: 55000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh-cluster
+  namespace: wazuh
+  labels:
+    app: wazuh-manager
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: wazuh-manager
+  ports:
+    - name: cluster
+      port: 1516
+      targetPort: 1516
+      protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-manager-conf
+  namespace: wazuh
+data:
+  ossec.conf: |
+    <ossec_config>
+      <global>
+        <jsonout_output>yes</jsonout_output>
+        <alerts_log>yes</alerts_log>
+        <logall>yes</logall>
+        <logall_json>yes</logall_json>
+        <email_notification>no</email_notification>
+      </global>
+
+      <alerts>
+        <log_alert_level>3</log_alert_level>
+        <email_alert_level>12</email_alert_level>
+      </alerts>
+
+      <remote>
+        <connection>secure</connection>
+        <port>1514</port>
+        <protocol>tcp</protocol>
+        <queue_size>131072</queue_size>
+      </remote>
+
+      <cluster>
+        <name>wazuh-cluster</name>
+        <node_name>wazuh-manager</node_name>
+        <node_type>master</node_type>
+        <key>c98b62a9b6169ac5f67dae55ae4a9088</key>
+        <port>1516</port>
+        <bind_addr>0.0.0.0</bind_addr>
+        <nodes>
+          <node>wazuh-manager-0</node>
+        </nodes>
+        <hidden>no</hidden>
+        <disabled>no</disabled>
+      </cluster>
+
+      <auth>
+        <disabled>no</disabled>
+        <port>1515</port>
+        <use_source_ip>no</use_source_ip>
+        <purge>yes</purge>
+        <use_password>no</use_password>
+        <ssl_agent_ca>/var/ossec/etc/rootCA.pem</ssl_agent_ca>
+        <ssl_verify_host>no</ssl_verify_host>
+        <ssl_manager_cert>/var/ossec/etc/manager.cert</ssl_manager_cert>
+        <ssl_manager_key>/var/ossec/etc/manager.key</ssl_manager_key>
+        <ssl_auto_negotiate>no</ssl_auto_negotiate>
+      </auth>
+
+      <vulnerability-detector>
+        <enabled>yes</enabled>
+        <interval>5m</interval>
+        <min_full_scan_interval>6h</min_full_scan_interval>
+        <run_on_start>yes</run_on_start>
+
+        <!-- Ubuntu OS vulnerabilities -->
+        <provider name="canonical">
+          <enabled>yes</enabled>
+          <os>trusty</os>
+          <os>xenial</os>
+          <os>bionic</os>
+          <os>focal</os>
+          <update_interval>1h</update_interval>
+        </provider>
+
+        <!-- RedHat OS vulnerabilities -->
+        <provider name="redhat">
+          <enabled>yes</enabled>
+          <update_from_year>2010</update_from_year>
+          <update_interval>1h</update_interval>
+        </provider>
+
+        <!-- Debian OS vulnerabilities -->
+        <provider name="debian">
+          <enabled>yes</enabled>
+          <os>stretch</os>
+          <os>buster</os>
+          <os>bullseye</os>
+          <update_interval>1h</update_interval>
+        </provider>
+      </vulnerability-detector>
+
+      <indexer>
+        <enabled>yes</enabled>
+        <hosts>
+          <host>https://wazuh-indexer:9200</host>
+        </hosts>
+        <ssl>
+          <certificate_authorities>
+            <ca>/etc/ssl/root-ca.pem</ca>
+          </certificate_authorities>
+          <certificate>/etc/ssl/filebeat.pem</certificate>
+          <key>/etc/ssl/filebeat.key</key>
+        </ssl>
+      </indexer>
+
+      <syscheck>
+        <disabled>no</disabled>
+        <frequency>43200</frequency>
+        <scan_on_start>yes</scan_on_start>
+
+        <!-- Monitor critical application files -->
+        <directories check_all="yes" realtime="yes">/var/ossec/etc</directories>
+        <directories check_all="yes" realtime="yes">/var/ossec/rules</directories>
+        
+        <!-- Ignore some files -->
+        <ignore>/var/ossec/logs</ignore>
+        <ignore type="sregex">.log$|.tmp$</ignore>
+      </syscheck>
+
+      <rootcheck>
+        <disabled>no</disabled>
+        <check_files>yes</check_files>
+        <check_trojans>yes</check_trojans>
+        <check_dev>yes</check_dev>
+        <check_sys>yes</check_sys>
+        <check_pids>yes</check_pids>
+        <check_ports>yes</check_ports>
+        <check_if>yes</check_if>
+      </rootcheck>
+
+      <wodle name="open-scap">
+        <disabled>yes</disabled>
+        <timeout>1800</timeout>
+        <interval>1d</interval>
+        <scan-on-start>yes</scan-on-start>
+      </wodle>
+
+      <wodle name="cis-cat">
+        <disabled>yes</disabled>
+        <timeout>1800</timeout>
+        <interval>1d</interval>
+        <scan-on-start>yes</scan-on-start>
+      </wodle>
+
+      <wodle name="osquery">
+        <disabled>yes</disabled>
+        <run_daemon>yes</run_daemon>
+        <log_path>/var/log/osquery/osqueryd.results.log</log_path>
+        <config_path>/etc/osquery/osquery.conf</config_path>
+        <add_labels>yes</add_labels>
+      </wodle>
+
+      <wodle name="syscollector">
+        <disabled>no</disabled>
+        <interval>1h</interval>
+        <scan_on_start>yes</scan_on_start>
+        <hardware>yes</hardware>
+        <os>yes</os>
+        <network>yes</network>
+        <packages>yes</packages>
+        <ports all="no">yes</ports>
+        <processes>yes</processes>
+      </wodle>
+
+      <sca>
+        <enabled>yes</enabled>
+        <scan_on_start>yes</scan_on_start>
+        <interval>12h</interval>
+        <skip_nfs>yes</skip_nfs>
+      </sca>
+    </ossec_config>
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wazuh-manager-data
+  namespace: wazuh
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wazuh-manager
+  namespace: wazuh
+spec:
+  serviceName: wazuh-cluster
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wazuh-manager
+  template:
+    metadata:
+      labels:
+        app: wazuh-manager
+    spec:
+      containers:
+      - name: wazuh-manager
+        image: wazuh/wazuh-manager:4.7.0
+        ports:
+        - containerPort: 1514
+          name: agents-events
+          protocol: TCP
+        - containerPort: 1515
+          name: registration
+          protocol: TCP
+        - containerPort: 1516
+          name: cluster
+          protocol: TCP
+        - containerPort: 55000
+          name: api
+          protocol: TCP
+        env:
+        - name: INDEXER_URL
+          value: "https://wazuh-indexer:9200"
+        - name: INDEXER_USERNAME
+          value: "admin"
+        - name: INDEXER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wazuh-secrets
+              key: indexer-password
+        - name: FILEBEAT_SSL_VERIFICATION_MODE
+          value: "none"
+        - name: SSL_CERTIFICATE_AUTHORITIES
+          value: "/etc/ssl/root-ca.pem"
+        - name: SSL_CERTIFICATE
+          value: "/etc/ssl/filebeat.pem"
+        - name: SSL_KEY
+          value: "/etc/ssl/filebeat.key"
+        volumeMounts:
+        - name: config
+          mountPath: /wazuh-config-mount/etc/ossec.conf
+          subPath: ossec.conf
+          readOnly: true
+        - name: wazuh-manager-data
+          mountPath: /var/ossec/data
+        - name: wazuh-manager-logs
+          mountPath: /var/ossec/logs
+        - name: wazuh-manager-api
+          mountPath: /var/ossec/api/configuration
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - /var/ossec/bin/wazuh-control
+            - status
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /var/ossec/bin/wazuh-control
+            - status
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: wazuh-manager-conf
+      - name: wazuh-manager-data
+        persistentVolumeClaim:
+          claimName: wazuh-manager-data
+      - name: wazuh-manager-logs
+        emptyDir: {}
+      - name: wazuh-manager-api
+        emptyDir: {}

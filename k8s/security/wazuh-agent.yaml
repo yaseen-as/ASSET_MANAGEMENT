@@ -1,0 +1,90 @@
+---
+# Wazuh Agent DaemonSet for Application Monitoring
+# This deploys Wazuh agents to all nodes and application pods
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wazuh-agent
+  namespace: asset-management
+  labels:
+    app: wazuh-agent
+spec:
+  selector:
+    matchLabels:
+      app: wazuh-agent
+  template:
+    metadata:
+      labels:
+        app: wazuh-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      containers:
+      - name: wazuh-agent
+        image: wazuh/wazuh-agent:4.7.0
+        env:
+        - name: WAZUH_MANAGER
+          value: "wazuh.wazuh.svc.cluster.local"
+        - name: WAZUH_MANAGER_PORT
+          value: "1514"
+        - name: WAZUH_PROTOCOL
+          value: "tcp"
+        - name: WAZUH_REGISTRATION_SERVER
+          value: "wazuh.wazuh.svc.cluster.local"
+        - name: WAZUH_REGISTRATION_PORT
+          value: "1515"
+        - name: WAZUH_REGISTRATION_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wazuh-agent-secret
+              key: registration-password
+              optional: true
+        - name: WAZUH_AGENT_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: WAZUH_AGENT_GROUP
+          value: "kubernetes,asset-management"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+          readOnly: true
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+        - name: agent-logs
+          mountPath: /var/ossec/logs
+        - name: agent-queue
+          mountPath: /var/ossec/queue
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+      - name: agent-logs
+        emptyDir: {}
+      - name: agent-queue
+        emptyDir: {}
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wazuh-agent-secret
+  namespace: asset-management
+type: Opaque
+stringData:
+  registration-password: ""  # Leave empty for auto-registration

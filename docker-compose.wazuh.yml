@@ -1,0 +1,109 @@
+# Docker Compose setup for Wazuh SOC (Alternative to Kubernetes)
+# Use this for local development and testing
+
+version: '3.8'
+
+services:
+  # Wazuh Manager
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.7.0
+    hostname: wazuh-manager
+    container_name: wazuh-manager
+    restart: always
+    ports:
+      - "1514:1514"  # Agent events
+      - "1515:1515"  # Agent registration
+      - "514:514/udp"  # Syslog
+      - "55000:55000"  # Wazuh API
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecurePassword123!
+      - FILEBEAT_SSL_VERIFICATION_MODE=none
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-etc:/var/ossec/etc
+      - ./wazuh/config/custom_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro
+      - ./wazuh/config/custom_decoders.xml:/var/ossec/etc/decoders/local_decoder.xml:ro
+    networks:
+      - wazuh-network
+
+  # Wazuh Indexer (Elasticsearch)
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.7.0
+    hostname: wazuh-indexer
+    container_name: wazuh-indexer
+    restart: always
+    ports:
+      - "9200:9200"
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
+      - discovery.type=single-node
+      - network.host=0.0.0.0
+      - plugins.security.ssl.http.enabled=true
+      - plugins.security.ssl.http.pemcert_filepath=/usr/share/wazuh-indexer/certs/indexer.pem
+      - plugins.security.ssl.http.pemkey_filepath=/usr/share/wazuh-indexer/certs/indexer-key.pem
+      - plugins.security.ssl.http.pemtrustedcas_filepath=/usr/share/wazuh-indexer/certs/root-ca.pem
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - wazuh-network
+
+  # Wazuh Dashboard (Kibana)
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.7.0
+    hostname: wazuh-dashboard
+    container_name: wazuh-dashboard
+    restart: always
+    ports:
+      - "5601:5601"
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecurePassword123!
+      - WAZUH_API_URL=https://wazuh-manager
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=WazuhAPI2024!
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/usr/share/wazuh-dashboard/certs/dashboard.pem
+      - SERVER_SSL_KEY=/usr/share/wazuh-dashboard/certs/dashboard-key.pem
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    networks:
+      - wazuh-network
+
+  # Nginx Reverse Proxy for Wazuh
+  wazuh-nginx:
+    image: nginx:alpine
+    container_name: wazuh-nginx
+    restart: always
+    ports:
+      - "8443:443"
+    volumes:
+      - ./nginx/wazuh-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - wazuh-dashboard
+    networks:
+      - wazuh-network
+
+volumes:
+  wazuh-manager-data:
+  wazuh-manager-logs:
+  wazuh-manager-etc:
+  wazuh-indexer-data:
+
+networks:
+  wazuh-network:
+    driver: bridge

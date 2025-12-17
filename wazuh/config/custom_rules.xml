@@ -1,0 +1,203 @@
+<!-- Custom Wazuh Rules for Asset Management Application -->
+<group name="asset-management,">
+
+  <!-- Authentication Rules -->
+  <rule id="100001" level="3">
+    <if_sid>1002</if_sid>
+    <match>auth-service</match>
+    <description>Asset Management: Authentication service activity</description>
+    <group>authentication,</group>
+  </rule>
+
+  <rule id="100002" level="5">
+    <if_sid>100001</if_sid>
+    <match>login attempt</match>
+    <description>Asset Management: User login attempt</description>
+    <group>authentication,login,</group>
+  </rule>
+
+  <rule id="100003" level="10">
+    <if_sid>100002</if_sid>
+    <match>failed</match>
+    <description>Asset Management: Failed login attempt</description>
+    <group>authentication,login_failed,</group>
+  </rule>
+
+  <rule id="100004" level="12">
+    <if_sid>100003</if_sid>
+    <frequency>5</frequency>
+    <timeframe>120</timeframe>
+    <description>Asset Management: Multiple failed login attempts (possible brute force)</description>
+    <group>authentication,brute_force,</group>
+  </rule>
+
+  <rule id="100005" level="3">
+    <if_sid>100002</if_sid>
+    <match>successful</match>
+    <description>Asset Management: Successful login</description>
+    <group>authentication,login_success,</group>
+  </rule>
+
+  <!-- Portfolio Activity Rules -->
+  <rule id="100010" level="3">
+    <if_sid>1002</if_sid>
+    <match>portfolio-service</match>
+    <description>Asset Management: Portfolio service activity</description>
+    <group>portfolio,</group>
+  </rule>
+
+  <rule id="100011" level="5">
+    <if_sid>100010</if_sid>
+    <match>holding added|holding created</match>
+    <description>Asset Management: New portfolio holding added</description>
+    <group>portfolio,holding_change,</group>
+  </rule>
+
+  <rule id="100012" level="5">
+    <if_sid>100010</if_sid>
+    <match>holding deleted|holding removed</match>
+    <description>Asset Management: Portfolio holding deleted</description>
+    <group>portfolio,holding_change,</group>
+  </rule>
+
+  <rule id="100013" level="8">
+    <if_sid>100010</if_sid>
+    <match>unauthorized access|permission denied</match>
+    <description>Asset Management: Unauthorized portfolio access attempt</description>
+    <group>portfolio,unauthorized_access,</group>
+  </rule>
+
+  <!-- Market Data Service Rules -->
+  <rule id="100020" level="3">
+    <if_sid>1002</if_sid>
+    <match>market-service</match>
+    <description>Asset Management: Market data service activity</description>
+    <group>market_data,</group>
+  </rule>
+
+  <rule id="100021" level="7">
+    <if_sid>100020</if_sid>
+    <match>API error|rate limit exceeded</match>
+    <description>Asset Management: Market data API error or rate limit</description>
+    <group>market_data,api_error,</group>
+  </rule>
+
+  <!-- Database Activity Rules -->
+  <rule id="100030" level="3">
+    <match>PostgreSQL|postgres</match>
+    <description>Asset Management: Database activity</description>
+    <group>database,</group>
+  </rule>
+
+  <rule id="100031" level="8">
+    <if_sid>100030</if_sid>
+    <match>connection refused|authentication failed</match>
+    <description>Asset Management: Database connection or authentication failure</description>
+    <group>database,connection_error,</group>
+  </rule>
+
+  <rule id="100032" level="10">
+    <if_sid>100030</if_sid>
+    <match>SQL injection|DROP TABLE|DELETE FROM</match>
+    <description>Asset Management: Potential SQL injection attempt</description>
+    <group>database,sql_injection,attack,</group>
+  </rule>
+
+  <!-- API Security Rules -->
+  <rule id="100040" level="7">
+    <match>JWT|token</match>
+    <regex>invalid|expired|malformed</regex>
+    <description>Asset Management: Invalid or expired JWT token</description>
+    <group>api,token_error,</group>
+  </rule>
+
+  <rule id="100041" level="10">
+    <match>CORS|Cross-Origin</match>
+    <regex>blocked|violation</regex>
+    <description>Asset Management: CORS policy violation</description>
+    <group>api,cors_violation,</group>
+  </rule>
+
+  <rule id="100042" level="8">
+    <frequency>50</frequency>
+    <timeframe>60</timeframe>
+    <description>Asset Management: High API request rate (possible DoS)</description>
+    <group>api,dos_attempt,</group>
+  </rule>
+
+  <!-- Container Security Rules -->
+  <rule id="100050" level="8">
+    <match>container|docker|kubernetes</match>
+    <regex>privilege escalation|root access</regex>
+    <description>Asset Management: Container privilege escalation attempt</description>
+    <group>container,privilege_escalation,</group>
+  </rule>
+
+  <rule id="100051" level="10">
+    <match>pod|deployment</match>
+    <regex>deleted|terminated|crashed</regex>
+    <description>Asset Management: Pod or deployment termination</description>
+    <group>container,pod_termination,</group>
+  </rule>
+
+  <!-- Data Exfiltration Rules -->
+  <rule id="100060" level="10">
+    <match>export|download</match>
+    <frequency>10</frequency>
+    <timeframe>60</timeframe>
+    <description>Asset Management: Unusual data export activity</description>
+    <group>data_exfiltration,</group>
+  </rule>
+
+  <rule id="100061" level="12">
+    <match>portfolio data|user data|holdings</match>
+    <regex>bulk export|mass download</regex>
+    <description>Asset Management: Bulk data export detected</description>
+    <group>data_exfiltration,critical,</group>
+  </rule>
+
+  <!-- Compliance Rules (PCI DSS, GDPR) -->
+  <rule id="100070" level="5">
+    <match>user data|personal information</match>
+    <regex>accessed|viewed|modified</regex>
+    <description>Asset Management: Personal data access (GDPR compliance)</description>
+    <group>compliance,gdpr,</group>
+  </rule>
+
+  <rule id="100071" level="8">
+    <match>payment|transaction|financial</match>
+    <regex>error|failed|declined</regex>
+    <description>Asset Management: Financial transaction failure (PCI DSS)</description>
+    <group>compliance,pci_dss,</group>
+  </rule>
+
+  <!-- Performance Monitoring Rules -->
+  <rule id="100080" level="5">
+    <match>response time|latency</match>
+    <regex>high|slow|timeout</regex>
+    <description>Asset Management: High response time or timeout</description>
+    <group>performance,</group>
+  </rule>
+
+  <rule id="100081" level="7">
+    <match>memory|cpu|disk</match>
+    <regex>usage high|threshold exceeded</regex>
+    <description>Asset Management: Resource usage threshold exceeded</description>
+    <group>performance,resource_usage,</group>
+  </rule>
+
+  <!-- Anomaly Detection Rules -->
+  <rule id="100090" level="10">
+    <match>unusual|anomaly|suspicious</match>
+    <description>Asset Management: Unusual activity pattern detected</description>
+    <group>anomaly,</group>
+  </rule>
+
+  <rule id="100091" level="12">
+    <if_sid>100090</if_sid>
+    <match>admin|root|superuser</match>
+    <description>Asset Management: Suspicious admin activity</description>
+    <group>anomaly,admin_activity,</group>
+  </rule>
+
+</group>

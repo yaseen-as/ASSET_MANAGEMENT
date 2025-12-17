@@ -1,0 +1,151 @@
+---
+# Wazuh Indexer (Elasticsearch-based) StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh-indexer
+  namespace: wazuh
+  labels:
+    app: wazuh-indexer
+spec:
+  type: ClusterIP
+  selector:
+    app: wazuh-indexer
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+      protocol: TCP
+    - name: transport
+      port: 9300
+      targetPort: 9300
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh-indexer-cluster
+  namespace: wazuh
+  labels:
+    app: wazuh-indexer
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: wazuh-indexer
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+    - name: transport
+      port: 9300
+      targetPort: 9300
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wazuh-indexer-data
+  namespace: wazuh
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wazuh-indexer
+  namespace: wazuh
+spec:
+  serviceName: wazuh-indexer-cluster
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wazuh-indexer
+  template:
+    metadata:
+      labels:
+        app: wazuh-indexer
+    spec:
+      initContainers:
+      - name: increase-vm-max-map
+        image: busybox
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+      - name: increase-fd-ulimit
+        image: busybox
+        command: ["sh", "-c", "ulimit -n 65536"]
+        securityContext:
+          privileged: true
+      containers:
+      - name: wazuh-indexer
+        image: wazuh/wazuh-indexer:4.7.0
+        ports:
+        - containerPort: 9200
+          name: http
+          protocol: TCP
+        - containerPort: 9300
+          name: transport
+          protocol: TCP
+        env:
+        - name: OPENSEARCH_JAVA_OPTS
+          value: "-Xms2g -Xmx2g"
+        - name: bootstrap.memory_lock
+          value: "true"
+        - name: discovery.type
+          value: "single-node"
+        - name: network.host
+          value: "0.0.0.0"
+        - name: cluster.name
+          value: "wazuh-cluster"
+        - name: node.name
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: plugins.security.ssl.http.enabled
+          value: "true"
+        - name: plugins.security.ssl.http.pemcert_filepath
+          value: "/usr/share/wazuh-indexer/certs/indexer.pem"
+        - name: plugins.security.ssl.http.pemkey_filepath
+          value: "/usr/share/wazuh-indexer/certs/indexer-key.pem"
+        - name: plugins.security.ssl.http.pemtrustedcas_filepath
+          value: "/usr/share/wazuh-indexer/certs/root-ca.pem"
+        - name: INDEXER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wazuh-secrets
+              key: indexer-password
+        volumeMounts:
+        - name: wazuh-indexer-data
+          mountPath: /var/lib/wazuh-indexer
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1000m"
+          limits:
+            memory: "8Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+            scheme: HTTPS
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: wazuh-indexer-data
+        persistentVolumeClaim:
+          claimName: wazuh-indexer-data
