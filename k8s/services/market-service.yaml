@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-service
+  namespace: asset-management
+  labels:
+    app: market-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: market-service
+  template:
+    metadata:
+      labels:
+        app: market-service
+    spec:
+      containers:
+      - name: market-service
+        image: yaseen-as/asset-management-market:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3003
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: asset-management-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: asset-management-config
+              key: MARKET_SERVICE_PORT
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?schema=public"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: asset-management-config
+              key: MARKET_DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: asset-management-config
+              key: MARKET_DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: asset-management-config
+              key: MARKET_DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: asset-management-secrets
+              key: MARKET_DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: asset-management-secrets
+              key: MARKET_DB_PASSWORD
+        - name: ANGEL_ONE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: asset-management-secrets
+              key: ANGEL_ONE_CLIENT_ID
+        - name: ANGEL_ONE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: asset-management-secrets
+              key: ANGEL_ONE_API_KEY
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-service
+  namespace: asset-management
+  labels:
+    app: market-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+      protocol: TCP
+      name: http
+  selector:
+    app: market-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: market-service-hpa
+  namespace: asset-management
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: market-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

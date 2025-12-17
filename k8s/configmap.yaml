@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: asset-management-config
+  namespace: asset-management
+data:
+  # Frontend Configuration
+  VITE_REACT_APP_API_URL: "http://asset-management.local"
+  
+  # Auth Service Configuration
+  AUTH_SERVICE_PORT: "3001"
+  
+  # Portfolio Service Configuration
+  PORTFOLIO_SERVICE_PORT: "3002"
+  
+  # Market Data Service Configuration
+  MARKET_SERVICE_PORT: "3003"
+  
+  # Database Hosts
+  AUTH_DB_HOST: "postgres-auth"
+  AUTH_DB_PORT: "5432"
+  AUTH_DB_NAME: "auth_db"
+  
+  PORTFOLIO_DB_HOST: "postgres-portfolio"
+  PORTFOLIO_DB_PORT: "5432"
+  PORTFOLIO_DB_NAME: "portfolio_db"
+  
+  MARKET_DB_HOST: "postgres-market"
+  MARKET_DB_PORT: "5432"
+  MARKET_DB_NAME: "market_db"
+  
+  # Redis Configuration (for future use)
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  
+  # CORS Configuration
+  CORS_ORIGIN: "http://asset-management.local"
+  
+  # Node Environment
+  NODE_ENV: "production"

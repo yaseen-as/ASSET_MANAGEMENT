@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asset-management
+  labels:
+    app: asset-management
+    environment: production
